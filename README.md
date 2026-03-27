@@ -353,7 +353,7 @@ sequenceDiagram
 
 ---
 
-## 🛡️ Security Warning
+## 🛡️ SecurityWarning
 
 > ⚠️ **CRITICAL**: This tool is designed for **educational purposes only**. Do NOT use in production environments without implementing proper security measures.
 
