@@ -8,7 +8,7 @@
 
 **A lightweight TCP-based remote administration tool built with Python for educational purposes**
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Security](#-SecurityWarning)
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Security Warning](#-Security)
 
 </div>
 
@@ -353,7 +353,7 @@ sequenceDiagram
 
 ---
 
-## 🛡️ SecurityWarning
+## 🛡️ Security Warning
 
 > ⚠️ **CRITICAL**: This tool is designed for **educational purposes only**. Do NOT use in production environments without implementing proper security measures.
 
