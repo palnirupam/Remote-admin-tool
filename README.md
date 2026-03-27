@@ -8,7 +8,7 @@
 
 **A lightweight TCP-based remote administration tool built with Python for educational purposes**
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Security Warning](#-Security)
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Security](#-Security-Warning)
 
 </div>
 
