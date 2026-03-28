@@ -386,17 +386,52 @@ kill -9 <process_id>
 
 <img src="https://img.shields.io/badge/Security-Educational%20Only-red?style=for-the-badge" alt="Security"/>
 
+**This tool is designed for learning and educational purposes.**
+
 </div>
 
-**Current Limitations:**
-- 🔓 No encryption (plain text)
-- 🔓 No authentication
-- 🔓 No input validation
+<table>
+<tr>
+<td width="50%">
 
-**For Production Use:**
-- ✅ SSH (Secure Shell)
-- ✅ Ansible
-- ✅ PowerShell Remoting
+### 🔓 Current Limitations
+
+- **No Encryption** - All data transmitted in plain text
+- **No Authentication** - Anyone can connect with IP address
+- **No Input Validation** - Commands executed without sanitization
+- **Command Injection Risk** - Shell commands run directly
+- **No Access Control** - No permission system implemented
+
+</td>
+<td width="50%">
+
+### ✅ Recommended for Production
+
+For real-world use, consider these secure alternatives:
+
+- **SSH (Secure Shell)** - Industry standard for remote access
+- **Ansible** - Automated configuration management
+- **PowerShell Remoting** - Windows remote management
+- **TeamViewer / AnyDesk** - GUI-based remote desktop
+- **VNC / RDP** - Secure remote desktop protocols
+
+</td>
+</tr>
+</table>
+
+<div align="center">
+
+### 🎓 Learning Objectives
+
+This tool is perfect for understanding:
+- Socket programming concepts
+- Client-server architecture
+- Network security vulnerabilities
+- Why encryption and authentication matter
+
+**Use responsibly and only on systems you own or have permission to access!**
+
+</div>
 
 ---
 
@@ -466,16 +501,6 @@ Contributions are welcome!
 
 ---
 
-## 📊 Statistics
-
-<div align="center">
-
-<img src="https://github-readme-stats.vercel.app/api/pin/?username=palnirupam&repo=Remote-admin-tool&theme=tokyonight" alt="Repo Stats"/>
-
-</div>
-
----
-
 ## 📜 License
 
 <div align="center">
@@ -500,14 +525,6 @@ MIT License © 2024 Nirupam Pal
 [![Repository](https://img.shields.io/badge/Repository-Remote--admin--tool-blue?style=for-the-badge&logo=github)](https://github.com/palnirupam/Remote-admin-tool)
 
 </div>
-
----
-
-<div align="center">
-
-### 🌟 Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=palnirupam/Remote-admin-tool&type=Date)](https://star-history.com/#palnirupam/Remote-admin-tool&Date)
 
 ---
 
