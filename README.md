@@ -2,123 +2,247 @@
 
 # 🖥️ Remote Administration Tool
 
-[![Python Version](https://img.shields.io/badge/python-3.x-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/palnirupam/Remote-admin-tool)
+<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=32&duration=2800&pause=2000&color=00ADD8&center=true&vCenter=true&width=940&lines=Professional+Remote+Administration;Multi-Client+Management;Cross-Platform+Support;Built+with+Python" alt="Typing SVG" />
 
-**A lightweight TCP-based remote administration tool built with Python for educational purposes**
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.x-blue.svg?style=for-the-badge&logo=python&logoColor=white" alt="Python Version"/>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg?style=for-the-badge&logo=windows&logoColor=white" alt="Platform"/>
+  <img src="https://img.shields.io/badge/license-MIT-green.svg?style=for-the-badge" alt="License"/>
+  <img src="https://img.shields.io/github/stars/palnirupam/Remote-admin-tool?style=for-the-badge&logo=github" alt="Stars"/>
+</p>
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Security](#security-warning)
+<p align="center">
+  <img src="https://img.shields.io/badge/Multi--Client-✓-success?style=flat-square" alt="Multi-Client"/>
+  <img src="https://img.shields.io/badge/GUI%20Interface-✓-success?style=flat-square" alt="GUI"/>
+  <img src="https://img.shields.io/badge/Screenshot-4K-success?style=flat-square" alt="Screenshot"/>
+  <img src="https://img.shields.io/badge/File%20Transfer-✓-success?style=flat-square" alt="File Transfer"/>
+  <img src="https://img.shields.io/badge/Real--time-✓-success?style=flat-square" alt="Real-time"/>
+</p>
+
+**🚀 Professional TCP-based remote administration tool with enterprise-grade features**
+
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [📖 Complete Guide](USAGE_GUIDE.md) • [Documentation](#-documentation)
+
+---
+
+</div>
+
+## 📋 Overview
+
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212284100-561aa473-3905-4a80-b561-0d28506553ee.gif" width="700">
+</div>
+
+A **powerful** and **lightweight** Python-based remote administration tool that enables seamless command execution across multiple client machines through a centralized server. Built with modern architecture and professional UI design.
+
+> 📖 **New to this tool?** Check out our [Complete Usage Guide](USAGE_GUIDE.md) for step-by-step instructions!
+
+### ✨ Why Choose This Tool?
+
+<table>
+<tr>
+<td width="50%">
+
+#### 🎯 **For Developers**
+- Clean, readable Python code
+- Excellent learning resource
+- Easy to customize
+- Well-documented
+
+</td>
+<td width="50%">
+
+#### 🏢 **For IT Admins**
+- Multi-client management
+- Real-time monitoring
+- Cross-platform support
+- Professional GUI
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🌟 Features
+
+<div align="center">
+
+| Feature | Description | Status |
+|:-------:|:------------|:------:|
+| 🔌 | **TCP Communication** - Reliable client-server architecture | ✅ |
+| 👥 | **Multi-Client Support** - Manage multiple machines simultaneously | ✅ |
+| 💻 | **Dual Interface** - CLI and professional GUI options | ✅ |
+| 📸 | **4K Screenshots** - High-quality screen capture | ✅ |
+| 📁 | **File Transfer** - Upload/download with progress tracking | ✅ |
+| ⚙️ | **System Control** - Restart, shutdown, lock operations | ✅ |
+| 🎯 | **Process Management** - Find and terminate processes | ✅ |
+| 📊 | **Activity Logging** - Complete audit trail | ✅ |
+| ⌨️ | **Interactive Terminal** - Full keyboard shortcuts | ✅ |
+| 🌐 | **Cross-Platform** - Windows & Linux support | ✅ |
 
 </div>
 
 ---
 
-## 📋 Overview
+## � Quick Start
 
-Remote Administration Tool is a powerful Python-based application that enables remote command execution on multiple client machines simultaneously through a centralized server. Built using socket programming, it provides both command-line and GUI interfaces for flexible remote system management with advanced features like screenshot capture, file transfer, and real-time monitoring.
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="100">
+</div>
 
-### 🎯 Key Highlights
-
-- **Multi-Client Support**: Manage multiple remote machines simultaneously
-- **Dual Interface**: Choose between CLI or GUI based on your preference
-- **Real-time Execution**: Execute commands and receive instant feedback
-- **Advanced Features**: Screenshot capture, file upload/download, system control
-- **Interactive Terminal**: Type directly in terminal like a real shell
-- **Cross-platform**: Works on Windows and Linux systems
-- **Lightweight**: Minimal dependencies, pure Python implementation
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---------|-------------|
-| 🔌 **TCP Communication** | Reliable client-server architecture using TCP sockets |
-| 👥 **Multi-Client Support** | Connect and manage multiple clients simultaneously |
-| ⚡ **Remote Command Execution** | Execute system commands on remote machines |
-| 🖼️ **Enterprise GUI** | Professional Tkinter-based interface with modern design |
-| 💻 **CLI Interface** | Powerful command-line interface for advanced users |
-| 📸 **4K Screenshot Capture** | High-quality screenshots with adaptive resolution (up to 4K) |
-| 📥 **File Download** | Download files from client machines |
-| 📤 **File Upload** | Upload files to client machines |
-| ⚙️ **System Control** | Restart, shutdown, or lock remote systems |
-| 🎯 **Process Management** | Find and kill processes on remote machines |
-| 📊 **Real-time Streaming** | View command output in real-time with 120Hz smooth scrolling |
-| 🛡️ **Error Handling** | Robust error handling and crash prevention |
-| 📝 **Activity Logging** | Timestamped logs of all actions and events |
-| 💾 **Export Results** | Save terminal output and logs to files |
-| 🎨 **OS-Aware Commands** | Automatic Windows/Linux command detection and adaptation |
-| ⌨️ **Real Terminal Features** | Full Ctrl shortcuts, Tab completion, command history |
-| 🖱️ **120Hz Smooth Scrolling** | Buttery smooth scrolling with easing animation |
-| 🎯 **Interactive Terminal** | Type directly in terminal like a real shell with all shortcuts |
-
----
-
-## 🚀 Installation
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Python 3.x** or higher
-- **Network connectivity** between server and client machines
-- **Firewall access** for port 5000 (or your chosen port)
-
-### Step 1: Clone the Repository
+### 📦 Installation
 
 ```bash
+# 1️⃣ Clone the repository
 git clone https://github.com/palnirupam/Remote-admin-tool.git
 cd Remote-admin-tool
+
+# 2️⃣ Install dependencies (for GUI with screenshots)
+pip install pillow mss
+
+# 3️⃣ Configure client IP in client.py
+# Edit SERVER_IP = "your_server_ip"
 ```
 
-### Step 2: Verify Python Installation
+### ⚙️ Configuration
 
-```bash
-python --version
-# Output should show: Python 3.x.x
-```
+<details>
+<summary>📝 Click to expand configuration steps</summary>
 
-### Step 3: Install Required Dependencies
+1. Open `client.py` in your editor
+2. Locate the configuration section:
+   ```python
+   SERVER_IP = "127.0.0.1"  # 👈 Change this
+   PORT = 5000
+   ```
+3. Update with your server's IP:
+   - **Local testing**: `127.0.0.1`
+   - **Same network**: `192.168.x.x`
+   - **Remote**: Your public IP
 
-For GUI with screenshot support:
-
-```bash
-pip install pillow
-```
-
-**Note:** CLI version (`server.py`) works with Python standard libraries only - no installation needed!
+</details>
 
 ---
 
-## ⚙️ Configuration
+## 💡 Usage
 
-### Configure Client Connection
+### 🖥️ Option 1: CLI Server
 
-1. Open `client.py` in your text editor
-2. Locate the `SERVER_IP` variable:
-   ```python
-   SERVER_IP = "127.0.0.1"  # Change this
-   ```
-3. Update with your server's IP address:
-   - **Local testing**: `"127.0.0.1"`
-   - **Same network**: `"192.168.1.100"` (your server's local IP)
-   - **Remote**: Your server's public IP address
+<div align="center">
+<img src="https://img.shields.io/badge/Terminal-000000?style=for-the-badge&logo=windows-terminal&logoColor=white" alt="Terminal"/>
+</div>
 
-4. (Optional) Change the port if needed:
-   ```python
-   PORT = 5000  # Default port
-   ```
+```bash
+# Start CLI server
+python server.py
 
-### Firewall Configuration
+# On client machine
+python client.py
+```
 
-**Windows:**
+**Features:**
+- ⚡ Lightweight and fast
+- 📝 Detailed logging to `server.log`
+- 🔄 Auto-reconnect support
+- 💾 Progress tracking for file transfers
+
+---
+
+### 🎨 Option 2: GUI Server (Recommended)
+
+<div align="center">
+<img src="https://img.shields.io/badge/GUI-Professional-blue?style=for-the-badge&logo=windows&logoColor=white" alt="GUI"/>
+</div>
+
+```bash
+# Start GUI server
+python server_gui.py
+
+# On client machine(s)
+python client.py
+```
+
+#### 🎯 GUI Features
+
+<table>
+<tr>
+<td width="33%" align="center">
+
+### 👥 Multi-Client
+<img src="https://img.shields.io/badge/Clients-10%20Max-blue?style=flat-square" alt="Clients"/>
+
+Manage up to 10 clients simultaneously with easy switching
+
+</td>
+<td width="33%" align="center">
+
+### 📸 Screenshots
+<img src="https://img.shields.io/badge/Quality-4K-green?style=flat-square" alt="4K"/>
+
+Capture high-quality screenshots up to 4K resolution
+
+</td>
+<td width="33%" align="center">
+
+### 📁 File Transfer
+<img src="https://img.shields.io/badge/Size-50MB-orange?style=flat-square" alt="Size"/>
+
+Upload/download files with progress tracking
+
+</td>
+</tr>
+</table>
+
+#### ⌨️ Keyboard Shortcuts
+
+<div align="center">
+
+| Shortcut | Action | Shortcut | Action |
+|:--------:|:-------|:--------:|:-------|
+| `↑` `↓` | Command history | `Tab` | Auto-complete |
+| `Ctrl+C` | Copy/Clear | `Ctrl+V` | Paste |
+| `Ctrl+L` | Clear terminal | `Ctrl+A` | Select all |
+| `Ctrl+K` | Kill line | `Ctrl+U` | Clear line |
+
+</div>
+
+---
+
+## 🖥️ Platform Support
+
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212257454-16e3712e-945a-4ca2-b238-408ad0bf87e6.gif" width="100">
+</div>
+
+### 🪟 Windows
+
+<details>
+<summary>🔧 Click for Windows setup</summary>
+
+**Firewall Configuration:**
 ```powershell
-# Allow inbound connections on port 5000
 netsh advfirewall firewall add rule name="Remote Admin Tool" dir=in action=allow protocol=TCP localport=5000
 ```
 
-**Linux:**
+**Common Commands:**
+```bash
+ipconfig          # Network information
+whoami            # Current user
+dir               # List files
+systeminfo        # System details
+tasklist          # Running processes
+netstat -an       # Network connections
+```
+
+</details>
+
+### 🐧 Linux
+
+<details>
+<summary>🔧 Click for Linux setup</summary>
+
+**Firewall Configuration:**
 ```bash
 # Using UFW
 sudo ufw allow 5000/tcp
@@ -127,553 +251,270 @@ sudo ufw allow 5000/tcp
 sudo iptables -A INPUT -p tcp --dport 5000 -j ACCEPT
 ```
 
----
-
-## 💡 Usage
-
-### Option 1: Command-Line Interface (CLI)
-
-Perfect for advanced users who prefer terminal-based control.
-
-#### Start the Server
-
+**Common Commands:**
 ```bash
-python server.py
-```
-
-**Expected output:**
-```
-Server started...
-```
-
-#### Start the Client
-
-On the client machine (or another terminal for local testing):
-
-```bash
-python client.py
-```
-
-**Expected output:**
-```
-Connected to server
-```
-
-#### Execute Commands
-
-On the server terminal, type any system command:
-
-**Windows Examples:**
-```bash
-ipconfig          # Network configuration
-whoami            # Current user
-dir               # List files
-systeminfo        # System information
-tasklist          # Running processes
-exit              # Disconnect client
-```
-
-**Linux Examples:**
-```bash
-ifconfig          # Network configuration
+ifconfig          # Network information
 whoami            # Current user
 ls -la            # List files
-uname -a          # System information
+uname -a          # System details
 ps aux            # Running processes
-exit              # Disconnect client
+netstat -tuln     # Network connections
 ```
+
+**Auto-Install Dependencies:**
+Client automatically installs required packages on first run!
+
+</details>
 
 ---
 
-### Option 2: GUI Interface (Enterprise Edition)
+## 📸 Advanced Features
 
-Perfect for users who prefer a visual interface with advanced features.
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212257465-7ce8d493-cac5-494e-982a-5a9deb852c4b.gif" width="100">
+</div>
 
-#### Start the GUI Server
+### 🎯 Screenshot Capture
 
 ```bash
-python server_gui.py
+# In terminal or click 📸 button
+SCREENSHOT
 ```
 
-A professional enterprise-grade window will open featuring:
+**Features:**
+- 🎨 Adaptive quality (4K/2K/HD)
+- 💾 Auto-save to `screenshots/` folder
+- 🔍 View at 100% original size
+- 📊 Memory-safe for large captures
 
-- **Blue header bar** with application title and version
-- **Three control buttons**: Start Server, Stop Server, Disconnect Client
-- **Status bar** with real-time connection indicators
-- **Scrollable left panel** with organized command sections
-- **Interactive terminal** - type directly like a real shell
-- **Activity log** section showing timestamped events
-- **Menu bar** with File, Edit, Tools, and Help options
+### 📁 File Transfer
 
-#### Start Server and Connect Clients
+**Download from client:**
+```bash
+# Windows
+DOWNLOAD:C:\path\to\file.txt
 
-1. Click the **"🚀 Start Server"** button
-2. Status will show: `Server listening...`
-3. On client machine(s), run:
-   ```bash
-   python client.py
-   ```
-4. Clients will appear in the "CONNECTED CLIENTS" list
-5. Click on a client to select it (turns green 🟢)
-6. Once selected, all command buttons become enabled
-
-#### Multi-Client Management
-
-The GUI supports multiple simultaneous client connections:
-
-- **Client List**: Shows all connected clients with hostname and IP
-- **Active Client**: Selected client is marked with 🟢 green indicator
-- **Switch Clients**: Click any client in the list to switch active client
-- **Auto-Select**: First client is automatically selected on connection
-
-#### Command Sections
-
-The GUI automatically detects the client's operating system and shows appropriate commands:
-
-**⚡ QUICK COMMANDS** (OS-Aware - 8 buttons):
-
-**For Windows Clients:**
-| Button | Command | Description |
-|--------|---------|-------------|
-| 🌐 **Network Info** | `ipconfig /all` | Network adapter details and IP addresses |
-| 👤 **Current User** | `whoami` | Display current logged-in user |
-| 📁 **List Files** | `dir` | List files and folders in current directory |
-| 💻 **System Info** | `systeminfo` | Detailed system hardware and OS info |
-| 📊 **Processes** | `tasklist` | List all running processes and PIDs |
-| 📍 **Current Path** | `cd` | Show current working directory |
-| 💾 **Disk Info** | `wmic logicaldisk get name,size,freespace` | Disk space information |
-| 📡 **Network Status** | `netstat -an` | Active network connections |
-
-**For Linux Clients:**
-| Button | Command | Description |
-|--------|---------|-------------|
-| 🌐 **Network Info** | `ifconfig -a` | Network adapter details and IP addresses |
-| 👤 **Current User** | `whoami` | Display current logged-in user |
-| 📁 **List Files** | `ls -la` | List files with details and permissions |
-| 💻 **System Info** | `uname -a` | System kernel and OS information |
-| 📊 **Processes** | `ps aux` | List all running processes with details |
-| 📍 **Current Path** | `pwd` | Print working directory |
-| 💾 **Disk Info** | `df -h` | Disk space in human-readable format |
-| 📡 **Network Status** | `netstat -tuln` | Active TCP/UDP connections |
-
-**Note:** Commands automatically adapt when you switch between Windows and Linux clients!
-
-**🚀 ADVANCED** (3 buttons):
-| Button | Function | Description |
-|--------|----------|-------------|
-| 📸 **Screenshot** | Capture screen | Take screenshot from client and display in popup window |
-| 📥 **Download File** | File transfer | Download any file from client machine |
-| 📤 **Upload File** | File transfer | Upload any file to client machine |
-
-**⚙️ SYSTEM CONTROL** (3 buttons):
-| Button | Command | Description |
-|--------|---------|-------------|
-| 🔄 **Restart System** | `shutdown /r /t 0` | Restart client machine immediately |
-| ⏻ **Shutdown System** | `shutdown /s /t 0` | Shutdown client machine immediately |
-| 🔒 **Lock Workstation** | `rundll32.exe user32.dll,LockWorkStation` | Lock client screen |
-
-**🎯 PROCESS CONTROL** (2 buttons):
-| Button | Function | Description |
-|--------|----------|-------------|
-| 🔍 **Find Process** | Search processes | Find process by name (e.g., "notepad") |
-| ❌ **Kill Process** | Terminate process | Kill process by name with confirmation |
-
-#### Interactive Terminal
-
-The terminal works like a real professional shell with full keyboard shortcuts:
-
-**Basic Navigation:**
-- **Direct Typing**: Click in the terminal and type commands directly
-- **Enter**: Execute command
-- **↑↓ Arrow Keys**: Navigate command history
-- **←→ Arrow Keys**: Move cursor (cannot go before prompt)
-- **Home**: Jump to start of input (after prompt)
-- **End**: Jump to end of input
-- **Backspace/Delete**: Smart deletion (cannot delete prompt)
-
-**Advanced Keyboard Shortcuts:**
-- **Tab**: Auto-complete commands (shows matching commands)
-- **Ctrl+A**: Select all input text
-- **Ctrl+C**: Copy selection (or clear input if no selection)
-- **Ctrl+V**: Paste from clipboard
-- **Ctrl+X**: Cut selected text
-- **Ctrl+L**: Clear terminal
-- **Ctrl+U**: Clear from cursor to start of line
-- **Ctrl+K**: Kill from cursor to end of line
-- **Ctrl+W**: Delete word before cursor
-- **Ctrl+D**: Delete character under cursor (or exit if empty)
-- **Ctrl+R**: Reverse search in command history
-
-**Right-Click Context Menu:**
-- 📋 Copy (Ctrl+C)
-- 📄 Paste (Ctrl+V)
-- 🔘 Select All (Ctrl+A)
-- 🗑️ Clear Terminal (Ctrl+L)
-
-**Tab Completion:**
-Type partial command and press Tab to see matching commands:
-```
-Remote-Admin> ip<Tab>
-ipconfig  ifconfig  iptables
-
-Remote-Admin> sys<Tab>
-systeminfo  systemctl
+# Linux
+DOWNLOAD:/home/user/file.txt
 ```
 
-**Example terminal session:**
-```
-Remote-Admin> whoami
-DESKTOP-ABC\User
+**Upload to client:**
+- Use GUI button for easy file selection
+- Supports files up to 50MB
+- Progress tracking included
 
-Remote-Admin> dir
- Volume in drive C is Windows
- Directory of C:\Users\User
+### ⚙️ System Control
 
-Remote-Admin> mkdir test_folder
-✓ Command executed successfully
-```
+<table>
+<tr>
+<td width="50%">
 
-#### Screenshot Feature
-
-High-quality screenshot capture with adaptive resolution:
-
-1. Click **"📸 Screenshot"** button or use menu: Tools → Capture Screenshot
-2. Screenshot window opens with the captured image
-3. **Quality Levels:**
-   - **4K Displays (3840x2160+)**: JPEG 90% quality
-   - **2K Displays (2560x1440+)**: JPEG 92% quality
-   - **Full HD (1920x1080)**: JPEG 93% quality
-   - **Lower Resolutions**: JPEG 95% quality
-4. Click **"💾 Save 4K"** to save with maximum quality
-5. Click **"🔍 100% Size"** to view at original resolution
-6. Supports PNG and JPEG formats with smart compression
-7. **Memory Safe**: Automatic size management prevents crashes
-
-#### File Transfer
-
-**Download from Client:**
-1. Click **"📥 Download File"** button or menu: File → Download from Client
-2. Enter full file path on client (e.g., `C:\Users\file.txt`)
-3. Choose save location on server
-4. File is transferred and saved
-
-**Upload to Client:**
-1. Click **"📤 Upload File"** button or menu: File → Upload to Client
-2. Select file from server
-3. File is uploaded to client's current directory
-4. Confirmation message appears in terminal
-
-#### Menu Bar Features
-
-**File Menu:**
-- 📥 Download from Client
-- 📤 Upload to Client
-- 💾 Save Terminal (export terminal output)
-- Exit
-
-**Edit Menu:**
-- Clear Terminal
-- Clear Logs
-
-**Tools Menu:**
-- 📸 Capture Screenshot
-- 📊 System Info
-
-**Help Menu:**
-- About (version and feature information)
-
----
-
-## 📖 Documentation
-
-### Project Structure
-
-```
-Remote-admin-tool/
-│
-├── 📄 server.py              # CLI-based server (single client)
-├── 📄 server_gui.py          # GUI-based server with multi-client support
-├── 📄 client.py              # Client with command execution and special features
-├── 📄 test_bug_condition.py  # Property-based tests for bug conditions
-├── 📄 test_preservation.py   # Property-based tests for behavior preservation
-└── 📄 README.md              # This documentation
+**Windows:**
+```bash
+shutdown /r /t 0    # Restart
+shutdown /s /t 0    # Shutdown
+rundll32.exe user32.dll,LockWorkStation  # Lock
 ```
 
-### How It Works
+</td>
+<td width="50%">
 
-```mermaid
-sequenceDiagram
-    participant Server
-    participant Client
-    
-    Server->>Server: Start listening on port 5000
-    Client->>Server: Connect request + OS info
-    Server->>Client: Connection accepted
-    Server->>Server: Detect client OS (Windows/Linux)
-    Server->>Server: Update command buttons for OS
-    
-    loop Command Execution
-        Server->>Client: Send command
-        Client->>Client: Execute OS-specific command
-        Client->>Server: Stream output in real-time
-        Server->>Server: Display with 120Hz smooth scroll
-    end
-    
-    Server->>Client: Send "exit"
-    Client->>Server: Disconnect
+**Linux:**
+```bash
+reboot              # Restart
+shutdown -h now     # Shutdown
+gnome-screensaver-command -l  # Lock
 ```
 
-### Architecture
-
-1. **Server (`server.py` / `server_gui.py`)**
-   - Listens on port 5000
-   - Accepts multiple client connections simultaneously
-   - Manages client list and active client selection
-   - Sends commands to active client
-   - Receives and displays output
-   - Handles special commands (SCREENSHOT, DOWNLOAD, UPLOAD, SYSINFO)
-
-2. **Client (`client.py`)**
-   - Connects to server
-   - Sends system information (hostname, OS, user)
-   - Receives commands
-   - Executes using `subprocess.run()` with proper error handling
-   - Handles special commands:
-     - **SCREENSHOT**: Captures screen using PIL/mss
-     - **DOWNLOAD:path**: Reads and sends file as base64
-     - **UPLOAD:filename:data**: Receives and saves file
-     - **SYSINFO**: Sends detailed system information
-   - Sends output back to server
-   - Auto-reconnects on failure
-
-3. **Communication Protocol**
-   - **Client Info**: JSON with hostname, OS, username
-   - **Commands**: Plain text strings
-   - **Responses**: Plain text or JSON for special commands
-   - **File Transfer**: Base64 encoded binary data
+</td>
+</tr>
+</table>
 
 ---
 
 ## 🔧 Troubleshooting
 
-### Common Issues and Solutions
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212257468-1e9a91f1-b626-4baa-b15d-5c385dfa7ed2.gif" width="100">
+</div>
 
-#### ❌ Connection Failed
-
-**Problem:** `Connection failed. Retrying in 5 seconds...`
+<details>
+<summary>❌ Connection Failed</summary>
 
 **Solutions:**
-- ✅ Verify server is running: `python server.py`
-- ✅ Check `SERVER_IP` in `client.py` matches server IP
+- ✅ Verify server is running
+- ✅ Check `SERVER_IP` in client.py
 - ✅ Ensure firewall allows port 5000
-- ✅ Test connectivity: `ping <server_ip>`
-- ✅ Verify both machines are on the same network (for local testing)
+- ✅ Test with `ping <server_ip>`
 
-#### ❌ Address Already in Use
+</details>
 
-**Problem:** `OSError: [Errno 98] Address already in use`
+<details>
+<summary>❌ Port Already in Use</summary>
 
-**Solutions:**
-- ✅ Port 5000 is occupied by another process
-- ✅ Find and kill the process:
-  ```bash
-  # Windows
-  netstat -ano | findstr :5000
-  taskkill /PID <process_id> /F
-  
-  # Linux
-  lsof -i :5000
-  kill -9 <process_id>
-  ```
-- ✅ Or change the `PORT` variable in both server and client files
+**Windows:**
+```powershell
+netstat -ano | findstr :5000
+taskkill /PID <process_id> /F
+```
 
-#### ❌ No Output Received
+**Linux:**
+```bash
+lsof -i :5000
+kill -9 <process_id>
+```
 
-**Problem:** Commands execute but no output appears
+</details>
 
-**Solutions:**
-- ✅ Some commands don't produce output (mkdir, copy, del, etc.)
-- ✅ Check for success message: "✓ Command executed successfully"
-- ✅ Command may not be valid for the client's OS
-- ✅ Try a simple command first: `whoami`
-- ✅ Check Activity Log for execution status
-- ✅ Ensure command produces output (dir, ipconfig work well)
-
-#### ❌ Screenshot Not Working
-
-**Problem:** Screenshot button doesn't capture screen
+<details>
+<summary>❌ Screenshot Not Working</summary>
 
 **Solutions:**
-- ✅ Ensure PIL (Pillow) is installed: `pip install pillow`
-- ✅ Client needs screenshot libraries (mss or PIL)
-- ✅ Check Activity Log for error messages
-- ✅ Verify client has display/screen access
+- ✅ Install: `pip install pillow mss`
+- ✅ Linux: `sudo apt install python3-pil python3-mss`
+- ✅ Check display access permissions
 
-#### ❌ File Transfer Fails
-
-**Problem:** Upload/Download doesn't work
-
-**Solutions:**
-- ✅ Check file path is correct and accessible
-- ✅ Ensure client has read/write permissions
-- ✅ Large files may timeout - increase timeout in client.py
-- ✅ Check Activity Log for detailed error messages
-
-#### ❌ Buttons Not Visible
-
-**Problem:** System Control or Process Control buttons not showing
-
-**Solutions:**
-- ✅ Scroll down in the left panel using mouse wheel
-- ✅ Left panel is scrollable - all buttons are there
-- ✅ Resize window if too small (minimum 1400x800)
+</details>
 
 ---
 
-## 🛡️ Security Warning
+## 🛡️ Security Notice
 
-> ⚠️ **CRITICAL**: This tool is designed for **educational purposes only**. Do NOT use in production environments without implementing proper security measures.
+<div align="center">
 
-### Current Security Limitations
+### ⚠️ Educational Use Only
 
-| Issue | Risk Level | Description |
-|-------|------------|-------------|
-| 🔓 **No Encryption** | 🔴 Critical | All data transmitted in plain text |
-| 🔓 **No Authentication** | 🔴 Critical | Anyone can connect if they know the IP |
-| 🔓 **Command Injection** | 🔴 Critical | `shell=True` allows arbitrary command execution |
-| 🔓 **No Input Validation** | 🟠 High | Commands are not sanitized |
-| 🔓 **No Access Control** | 🟠 High | No permission system |
-| 🔓 **No Logging** | 🟡 Medium | No audit trail of executed commands |
+<img src="https://img.shields.io/badge/Security-Educational%20Only-red?style=for-the-badge" alt="Security"/>
 
-### Recommendations for Production Use
+</div>
 
-If you want to use this in a real environment, implement:
+**Current Limitations:**
+- 🔓 No encryption (plain text)
+- 🔓 No authentication
+- 🔓 No input validation
 
-1. **SSL/TLS Encryption**
-   ```python
-   import ssl
-   # Wrap socket with SSL
-   ```
-
-2. **Authentication System**
-   ```python
-   # Add username/password verification
-   # Implement token-based authentication
-   ```
-
-3. **Input Validation**
-   ```python
-   # Whitelist allowed commands
-   # Sanitize user input
-   ```
-
-4. **Secure Command Execution**
-   ```python
-   # Use shell=False with argument lists
-   subprocess.run(['ls', '-la'], shell=False)
-   ```
-
-5. **Access Control & Logging**
-   ```python
-   # Log all commands with timestamps
-   # Implement role-based access control
-   ```
-
-6. **Consider Established Tools**
-   - SSH (Secure Shell)
-   - Ansible
-   - PowerShell Remoting
-   - TeamViewer / AnyDesk
+**For Production Use:**
+- ✅ SSH (Secure Shell)
+- ✅ Ansible
+- ✅ PowerShell Remoting
 
 ---
 
-## 🎓 Educational Use Cases
+## 📁 Project Structure
 
-This project is perfect for learning:
+```
+📦 Remote-admin-tool
+ ┣ 📜 server.py          # CLI server with advanced logging
+ ┣ 📜 server_gui.py      # Professional GUI server
+ ┣ 📜 client.py          # Smart client with auto-reconnect
+ ┣ 📜 requirements.txt   # Python dependencies
+ ┣ 📜 .gitignore         # Git ignore rules
+ ┣ 📜 README.md          # This file
+ ┗ 📖 USAGE_GUIDE.md     # Complete step-by-step guide
+```
 
-- ✅ Socket programming in Python (TCP client-server)
-- ✅ Multi-client connection management with threading
-- ✅ Network communication protocols and data streaming
-- ✅ GUI development with Tkinter (Canvas, ScrolledText, custom widgets)
-- ✅ Process management with subprocess
-- ✅ File I/O and base64 encoding for file transfer
-- ✅ Image processing with PIL (screenshot capture and compression)
-- ✅ Threading for non-blocking server operations
-- ✅ Error handling and reconnection logic
-- ✅ Cross-platform compatibility (Windows/Linux)
-- ✅ OS detection and adaptive command execution
-- ✅ Real-time data streaming and UI updates
-- ✅ Keyboard event handling and shortcuts
-- ✅ Tab completion and command history
-- ✅ Smooth scrolling with easing animations (120Hz)
-- ✅ Memory management for large data transfers
-- ✅ Property-based testing with Hypothesis
-- ✅ Security considerations in network applications
+> 📖 **Need help?** Check [USAGE_GUIDE.md](USAGE_GUIDE.md) for detailed instructions!
+
+---
+
+## 🎓 Learning Objectives
+
+<div align="center">
+
+<img src="https://img.shields.io/badge/Socket%20Programming-✓-blue?style=flat-square" alt="Socket"/>
+<img src="https://img.shields.io/badge/Multi--Threading-✓-blue?style=flat-square" alt="Threading"/>
+<img src="https://img.shields.io/badge/GUI%20Development-✓-blue?style=flat-square" alt="GUI"/>
+<img src="https://img.shields.io/badge/Cross--Platform-✓-blue?style=flat-square" alt="Cross-Platform"/>
+<img src="https://img.shields.io/badge/File%20I%2FO-✓-blue?style=flat-square" alt="File IO"/>
+<img src="https://img.shields.io/badge/Error%20Handling-✓-blue?style=flat-square" alt="Error Handling"/>
+
+</div>
+
+Perfect for learning:
+- 🔌 TCP socket programming
+- 🧵 Multi-threading and concurrency
+- 🎨 Tkinter GUI development
+- 🖥️ Cross-platform compatibility
+- 📁 File encoding and transfer
+- 🔧 Process management
+- 📝 Logging and debugging
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Here's how you can help:
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212257460-738ff738-247f-4445-a718-cdd0ca76e2db.gif" width="100">
+</div>
 
-1. **Fork** the repository
-2. **Create** a feature branch: `git checkout -b feature/AmazingFeature`
-3. **Commit** your changes: `git commit -m 'Add some AmazingFeature'`
-4. **Push** to the branch: `git push origin feature/AmazingFeature`
-5. **Open** a Pull Request
+Contributions are welcome! 
 
-### Ideas for Contributions
+**How to contribute:**
+1. 🍴 Fork the repository
+2. 🌿 Create feature branch: `git checkout -b feature/AmazingFeature`
+3. 💾 Commit changes: `git commit -m 'Add AmazingFeature'`
+4. 📤 Push to branch: `git push origin feature/AmazingFeature`
+5. 🔃 Open a Pull Request
 
+**Ideas for contributions:**
 - 🔐 Add SSL/TLS encryption
 - 🔑 Implement authentication system
-- 📝 Add command logging to database
-- 🎨 Add dark/light theme toggle
-- 📱 Add web-based client interface
-- 🐧 Better cross-platform support (macOS)
-- 🔔 Add notification system for events
-- 📊 Add performance monitoring dashboard
-- 🗂️ Add file browser for easier file management
-- 🔍 Add search functionality in terminal output
+- 🌐 Add web-based interface
+- 📱 Mobile client support
+- 🎨 Theme customization
+- 📊 Performance dashboard
+
+---
+
+## 📊 Statistics
+
+<div align="center">
+
+<img src="https://github-readme-stats.vercel.app/api/pin/?username=palnirupam&repo=Remote-admin-tool&theme=tokyonight" alt="Repo Stats"/>
+
+</div>
 
 ---
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+<div align="center">
+
+MIT License © 2024 Nirupam Pal
+
+<img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License"/>
+
+</div>
 
 ---
 
 ## 👨‍💻 Author
 
-**Nirupam Pal**
+<div align="center">
 
-- GitHub: [@palnirupam](https://github.com/palnirupam)
-- Repository: [Remote-admin-tool](https://github.com/palnirupam/Remote-admin-tool)
+<img src="https://user-images.githubusercontent.com/74038190/212284087-bbe7e430-757e-4901-90bf-4cd2ce3e1852.gif" width="100">
 
----
+### Nirupam Pal
 
-## 🙏 Acknowledgments
+[![GitHub](https://img.shields.io/badge/GitHub-palnirupam-181717?style=for-the-badge&logo=github)](https://github.com/palnirupam)
+[![Repository](https://img.shields.io/badge/Repository-Remote--admin--tool-blue?style=for-the-badge&logo=github)](https://github.com/palnirupam/Remote-admin-tool)
 
-- Built with Python's standard libraries
-- Inspired by the need for simple remote administration tools
-- Created for educational and learning purposes
-
----
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [Troubleshooting](#-troubleshooting) section
-2. Open an [Issue](https://github.com/palnirupam/Remote-admin-tool/issues)
-3. Review existing issues for solutions
+</div>
 
 ---
 
 <div align="center">
 
-**⭐ Star this repository if you find it helpful!**
+### 🌟 Star History
 
-Made with ❤️ by [Nirupam Pal](https://github.com/palnirupam)
+[![Star History Chart](https://api.star-history.com/svg?repos=palnirupam/Remote-admin-tool&type=Date)](https://star-history.com/#palnirupam/Remote-admin-tool&Date)
+
+---
+
+### ⭐ If you find this project helpful, please give it a star!
+
+<img src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" width="1000">
+
+**Made with ❤️ for the developer community**
 
 </div>
