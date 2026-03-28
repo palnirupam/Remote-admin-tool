@@ -16,15 +16,17 @@
 
 ## 📋 Overview
 
-Remote Administration Tool is a simple yet powerful Python-based application that enables remote command execution on client machines through a centralized server. Built using socket programming, it provides both command-line and GUI interfaces for flexible remote system management.
+Remote Administration Tool is a powerful Python-based application that enables remote command execution on multiple client machines simultaneously through a centralized server. Built using socket programming, it provides both command-line and GUI interfaces for flexible remote system management with advanced features like screenshot capture, file transfer, and real-time monitoring.
 
 ### 🎯 Key Highlights
 
+- **Multi-Client Support**: Manage multiple remote machines simultaneously
 - **Dual Interface**: Choose between CLI or GUI based on your preference
 - **Real-time Execution**: Execute commands and receive instant feedback
-- **Auto-reconnection**: Client automatically reconnects if connection drops
+- **Advanced Features**: Screenshot capture, file upload/download, system control
+- **Interactive Terminal**: Type directly in terminal like a real shell
 - **Cross-platform**: Works on Windows and Linux systems
-- **Lightweight**: No heavy dependencies, pure Python implementation
+- **Lightweight**: Minimal dependencies, pure Python implementation
 
 ---
 
@@ -33,17 +35,22 @@ Remote Administration Tool is a simple yet powerful Python-based application tha
 | Feature | Description |
 |---------|-------------|
 | 🔌 **TCP Communication** | Reliable client-server architecture using TCP sockets |
+| 👥 **Multi-Client Support** | Connect and manage multiple clients simultaneously |
 | ⚡ **Remote Command Execution** | Execute system commands on remote machines |
-| 🖼️ **Enterprise GUI** | Professional Tkinter-based interface with animations |
+| 🖼️ **Enterprise GUI** | Professional Tkinter-based interface with modern design |
 | 💻 **CLI Interface** | Powerful command-line interface for advanced users |
-| 🔄 **Auto-reconnect** | Client automatically attempts reconnection on failure |
+| 📸 **Screenshot Capture** | Take screenshots from remote clients |
+| 📥 **File Download** | Download files from client machines |
+| 📤 **File Upload** | Upload files to client machines |
+| ⚙️ **System Control** | Restart, shutdown, or lock remote systems |
+| 🎯 **Process Management** | Find and kill processes on remote machines |
 | 📊 **Real-time Output** | View command results instantly with syntax highlighting |
 | 🛡️ **Error Handling** | Robust error handling and reporting |
-| 🎬 **Smooth Animations** | Loading indicators, progress bars, and transitions |
 | 📝 **Activity Logging** | Timestamped logs of all actions and events |
-| 💾 **Export Results** | Save command output to text files |
-| 🎨 **8 Quick Commands** | Pre-configured buttons for common operations |
-| ⚙️ **Custom Commands** | Execute any system command via input field |
+| 💾 **Export Results** | Save terminal output and logs to files |
+| 🎨 **Quick Commands** | Pre-configured buttons for common operations |
+| ⌨️ **Interactive Terminal** | Type directly in terminal like a real shell |
+| 🖱️ **Scrollable Interface** | Independent scrolling for left panel and terminal |
 
 ---
 
@@ -71,9 +78,15 @@ python --version
 # Output should show: Python 3.x.x
 ```
 
-### Step 3: No Additional Dependencies Required! 🎉
+### Step 3: Install Required Dependencies
 
-This project uses only Python standard libraries, so no `pip install` needed.
+For GUI with screenshot support:
+
+```bash
+pip install pillow
+```
+
+**Note:** CLI version (`server.py`) works with Python standard libraries only - no installation needed!
 
 ---
 
@@ -171,9 +184,9 @@ exit              # Disconnect client
 
 ---
 
-### Option 2: GUI Interface
+### Option 2: GUI Interface (Enterprise Edition)
 
-Perfect for users who prefer a visual interface.
+Perfect for users who prefer a visual interface with advanced features.
 
 #### Start the GUI Server
 
@@ -184,66 +197,128 @@ python server_gui.py
 A professional enterprise-grade window will open featuring:
 
 - **Blue header bar** with application title and version
-- **Connection controls** (Connect/Disconnect buttons)
+- **Three control buttons**: Start Server, Stop Server, Disconnect Client
 - **Status bar** with real-time connection indicators
-- **Left panel** with 8 color-coded quick command buttons
-- **Custom command input** field for any command
-- **Main output area** with dark theme and syntax highlighting
+- **Scrollable left panel** with organized command sections
+- **Interactive terminal** - type directly like a real shell
 - **Activity log** section showing timestamped events
-- **Menu bar** with File, Tools, and Help options
+- **Menu bar** with File, Edit, Tools, and Help options
 
-#### Connect to Client
+#### Start Server and Connect Clients
 
-1. Click the **"Connect"** button
-2. Status will show: `Waiting for client...`
-3. On the client machine, run:
+1. Click the **"🚀 Start Server"** button
+2. Status will show: `Server listening...`
+3. On client machine(s), run:
    ```bash
    python client.py
    ```
-4. Once connected, status updates to: `Connected: <client_ip>`
+4. Clients will appear in the "CONNECTED CLIENTS" list
+5. Click on a client to select it (turns green 🟢)
+6. Once selected, all command buttons become enabled
 
-#### Use Predefined Commands
+#### Multi-Client Management
 
-The GUI includes 8 quick command buttons with professional icons and color coding:
+The GUI supports multiple simultaneous client connections:
 
-| Button | Command | Description | Icon |
-|--------|---------|-------------|------|
-| 🌐 **Network Configuration** | `ipconfig` | Network adapter details and IP addresses | Blue |
-| 👤 **Current User Info** | `whoami` | Display current logged-in user | Purple |
-| 📁 **Directory Listing** | `dir` | List files and folders in current directory | Orange |
-| 💻 **System Information** | `systeminfo` | Detailed system hardware and OS info | Green |
-| 📊 **Running Processes** | `tasklist` | List all running processes and PIDs | Cyan |
-| 📡 **Network Statistics** | `netstat -an` | Active network connections and ports | Indigo |
-| ⚙️ **Environment Variables** | `set` | Display all environment variables | Brown |
-| 💾 **Disk Information** | `wmic logicaldisk get name,size,freespace` | Hard drive details and free space | Gray |
+- **Client List**: Shows all connected clients with hostname and IP
+- **Active Client**: Selected client is marked with 🟢 green indicator
+- **Switch Clients**: Click any client in the list to switch active client
+- **Auto-Select**: First client is automatically selected on connection
 
-#### Custom Command Execution
+#### Command Sections
 
-You can also execute any custom command:
+**⚡ QUICK COMMANDS** (6 buttons):
+| Button | Command | Description |
+|--------|---------|-------------|
+| 🌐 **Network Info** | `ipconfig` | Network adapter details and IP addresses |
+| 👤 **Current User** | `whoami` | Display current logged-in user |
+| 📁 **List Files** | `dir` | List files and folders in current directory |
+| 💻 **System Info** | `systeminfo` | Detailed system hardware and OS info |
+| 📊 **Processes** | `tasklist` | List all running processes and PIDs |
+| 📍 **Current Path** | `cd` | Show current working directory |
 
-1. Type your command in the "CUSTOM COMMAND" input field
-2. Press **Enter** or click **"▶ Execute Command"**
-3. View the output in the main display area
+**🚀 ADVANCED** (3 buttons):
+| Button | Function | Description |
+|--------|----------|-------------|
+| 📸 **Screenshot** | Capture screen | Take screenshot from client and display in popup window |
+| 📥 **Download File** | File transfer | Download any file from client machine |
+| 📤 **Upload File** | File transfer | Upload any file to client machine |
 
-**Example custom commands:**
-```bash
-ping google.com          # Test network connectivity
-hostname                 # Get computer name
-date /t                  # Display current date
-time /t                  # Display current time
-ver                      # Windows version
+**⚙️ SYSTEM CONTROL** (3 buttons):
+| Button | Command | Description |
+|--------|---------|-------------|
+| 🔄 **Restart System** | `shutdown /r /t 0` | Restart client machine immediately |
+| ⏻ **Shutdown System** | `shutdown /s /t 0` | Shutdown client machine immediately |
+| 🔒 **Lock Workstation** | `rundll32.exe user32.dll,LockWorkStation` | Lock client screen |
+
+**🎯 PROCESS CONTROL** (2 buttons):
+| Button | Function | Description |
+|--------|----------|-------------|
+| 🔍 **Find Process** | Search processes | Find process by name (e.g., "notepad") |
+| ❌ **Kill Process** | Terminate process | Kill process by name with confirmation |
+
+#### Interactive Terminal
+
+The terminal works like a real shell:
+
+1. **Direct Typing**: Click in the terminal and type commands directly
+2. **Command History**: Use ↑↓ arrow keys to navigate previous commands
+3. **Auto-Complete**: Press Enter to execute
+4. **Prompt Protection**: Cannot delete the "Remote-Admin>" prompt
+5. **Syntax Highlighting**: Commands, output, errors shown in different colors
+
+**Example terminal session:**
+```
+Remote-Admin> whoami
+DESKTOP-ABC\User
+
+Remote-Admin> dir
+ Volume in drive C is Windows
+ Directory of C:\Users\User
+
+Remote-Admin> mkdir test_folder
+✓ Command executed successfully
 ```
 
-#### Additional GUI Features
+#### Screenshot Feature
 
-- **Menu Bar**: File → Save Output, Tools → Clear Output/Logs, Help → About
-- **Activity Log**: Real-time log of all actions with timestamps
-- **Save Output**: Export command results to a text file
-- **Animations**: Smooth loading indicators and progress bars
-- **Status Bar**: Live connection status with visual indicators
-- **Disconnect Button**: Safely disconnect from client
+1. Click **"📸 Screenshot"** button or use menu: Tools → Capture Screenshot
+2. Screenshot window opens with the captured image
+3. Click **"💾 Save Screenshot"** to save with timestamp
+4. Supports PNG and JPEG formats
 
-Command output appears in the dark-themed code editor below with syntax highlighting.
+#### File Transfer
+
+**Download from Client:**
+1. Click **"📥 Download File"** button or menu: File → Download from Client
+2. Enter full file path on client (e.g., `C:\Users\file.txt`)
+3. Choose save location on server
+4. File is transferred and saved
+
+**Upload to Client:**
+1. Click **"📤 Upload File"** button or menu: File → Upload to Client
+2. Select file from server
+3. File is uploaded to client's current directory
+4. Confirmation message appears in terminal
+
+#### Menu Bar Features
+
+**File Menu:**
+- 📥 Download from Client
+- 📤 Upload to Client
+- 💾 Save Terminal (export terminal output)
+- Exit
+
+**Edit Menu:**
+- Clear Terminal
+- Clear Logs
+
+**Tools Menu:**
+- 📸 Capture Screenshot
+- 📊 System Info
+
+**Help Menu:**
+- About (version and feature information)
 
 ---
 
@@ -254,10 +329,12 @@ Command output appears in the dark-themed code editor below with syntax highligh
 ```
 Remote-admin-tool/
 │
-├── 📄 server.py          # CLI-based server
-├── 📄 server_gui.py      # GUI-based server with Tkinter
-├── 📄 client.py          # Client that executes commands
-└── 📄 README.md          # This documentation
+├── 📄 server.py              # CLI-based server (single client)
+├── 📄 server_gui.py          # GUI-based server with multi-client support
+├── 📄 client.py              # Client with command execution and special features
+├── 📄 test_bug_condition.py  # Property-based tests for bug conditions
+├── 📄 test_preservation.py   # Property-based tests for behavior preservation
+└── 📄 README.md              # This documentation
 ```
 
 ### How It Works
@@ -286,16 +363,30 @@ sequenceDiagram
 
 1. **Server (`server.py` / `server_gui.py`)**
    - Listens on port 5000
-   - Accepts client connections
-   - Sends commands to client
+   - Accepts multiple client connections simultaneously
+   - Manages client list and active client selection
+   - Sends commands to active client
    - Receives and displays output
+   - Handles special commands (SCREENSHOT, DOWNLOAD, UPLOAD, SYSINFO)
 
 2. **Client (`client.py`)**
    - Connects to server
+   - Sends system information (hostname, OS, user)
    - Receives commands
-   - Executes using `subprocess`
+   - Executes using `subprocess.run()` with proper error handling
+   - Handles special commands:
+     - **SCREENSHOT**: Captures screen using PIL/mss
+     - **DOWNLOAD:path**: Reads and sends file as base64
+     - **UPLOAD:filename:data**: Receives and saves file
+     - **SYSINFO**: Sends detailed system information
    - Sends output back to server
    - Auto-reconnects on failure
+
+3. **Communication Protocol**
+   - **Client Info**: JSON with hostname, OS, username
+   - **Commands**: Plain text strings
+   - **Responses**: Plain text or JSON for special commands
+   - **File Transfer**: Base64 encoded binary data
 
 ---
 
@@ -337,19 +428,41 @@ sequenceDiagram
 **Problem:** Commands execute but no output appears
 
 **Solutions:**
+- ✅ Some commands don't produce output (mkdir, copy, del, etc.)
+- ✅ Check for success message: "✓ Command executed successfully"
 - ✅ Command may not be valid for the client's OS
 - ✅ Try a simple command first: `whoami`
-- ✅ Check client terminal for error messages
-- ✅ Ensure command produces output (some commands are silent)
+- ✅ Check Activity Log for execution status
+- ✅ Ensure command produces output (dir, ipconfig work well)
 
-#### ❌ GUI Freezes
+#### ❌ Screenshot Not Working
 
-**Problem:** GUI becomes unresponsive after clicking "Connect"
+**Problem:** Screenshot button doesn't capture screen
 
 **Solutions:**
-- ✅ This is expected behavior while waiting for client
-- ✅ Start the client to complete the connection
-- ✅ For production use, implement threading (see Security section)
+- ✅ Ensure PIL (Pillow) is installed: `pip install pillow`
+- ✅ Client needs screenshot libraries (mss or PIL)
+- ✅ Check Activity Log for error messages
+- ✅ Verify client has display/screen access
+
+#### ❌ File Transfer Fails
+
+**Problem:** Upload/Download doesn't work
+
+**Solutions:**
+- ✅ Check file path is correct and accessible
+- ✅ Ensure client has read/write permissions
+- ✅ Large files may timeout - increase timeout in client.py
+- ✅ Check Activity Log for detailed error messages
+
+#### ❌ Buttons Not Visible
+
+**Problem:** System Control or Process Control buttons not showing
+
+**Solutions:**
+- ✅ Scroll down in the left panel using mouse wheel
+- ✅ Left panel is scrollable - all buttons are there
+- ✅ Resize window if too small (minimum 1400x800)
 
 ---
 
@@ -414,12 +527,16 @@ If you want to use this in a real environment, implement:
 
 This project is perfect for learning:
 
-- ✅ Socket programming in Python
-- ✅ Client-server architecture
+- ✅ Socket programming in Python (TCP client-server)
+- ✅ Multi-client connection management
 - ✅ Network communication protocols
-- ✅ GUI development with Tkinter
+- ✅ GUI development with Tkinter (Canvas, ScrolledText, custom widgets)
 - ✅ Process management with subprocess
+- ✅ File I/O and base64 encoding for file transfer
+- ✅ Image processing with PIL (screenshot capture)
+- ✅ Threading for non-blocking server operations
 - ✅ Error handling and reconnection logic
+- ✅ Property-based testing with Hypothesis
 - ✅ Security considerations in network applications
 
 ---
@@ -438,11 +555,14 @@ Contributions are welcome! Here's how you can help:
 
 - 🔐 Add SSL/TLS encryption
 - 🔑 Implement authentication system
-- 📝 Add command logging
-- 🧵 Implement threading for GUI
-- 🎨 Improve GUI design
-- 📱 Add mobile client support
-- 🐧 Better cross-platform support
+- 📝 Add command logging to database
+- 🎨 Add dark/light theme toggle
+- 📱 Add web-based client interface
+- 🐧 Better cross-platform support (macOS)
+- 🔔 Add notification system for events
+- 📊 Add performance monitoring dashboard
+- 🗂️ Add file browser for easier file management
+- 🔍 Add search functionality in terminal output
 
 ---
 
