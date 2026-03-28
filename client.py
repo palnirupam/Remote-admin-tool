@@ -309,7 +309,46 @@ def main_loop():
                     
                     else:
                         # Command aliases for cross-platform compatibility
-                        cmd_lower = cmd.strip().lower()
+                        cmd_stripped = cmd.strip()
+                        cmd_lower = cmd_stripped.lower()
+                        
+                        # Handle common Linux commands that might be typed
+                        if cmd_lower == "ls- la" or cmd_lower == "ls-la":
+                            cmd = "ls -la"
+                        elif cmd_lower == "ls-la":
+                            cmd = "ls -la"
+                        elif cmd_lower == "ll":
+                            cmd = "ls -la"
+                        elif cmd_lower == "la":
+                            cmd = "ls -la"
+                        elif cmd_lower == "l":
+                            cmd = "ls -la"
+                        elif cmd_lower == "tree":
+                            cmd = "tree"  # Keep tree as is
+                        elif cmd_lower == "df":
+                            cmd = "df -h"  # Disk free with human readable
+                        elif cmd_lower == "du":
+                            cmd = "du -sh"  # Disk usage summary
+                        elif cmd_lower == "free":
+                            cmd = "free -h"  # Memory with human readable
+                        elif cmd_lower == "top":
+                            cmd = "top"  # Process monitor
+                        elif cmd_lower == "htop":
+                            cmd = "htop"  # Better process monitor
+                        elif cmd_lower == "nano":
+                            cmd = "nano"  # Text editor
+                        elif cmd_lower == "vi":
+                            cmd = "vi"  # Text editor
+                        elif cmd_lower == "vim":
+                            cmd = "vim"  # Text editor
+                        elif cmd_lower == "grep":
+                            cmd = "grep"  # Keep grep as is
+                        elif cmd_lower == "find":
+                            cmd = "find"  # Keep find as is
+                        elif cmd_lower == "chmod":
+                            cmd = "chmod"  # Keep chmod as is
+                        elif cmd_lower == "chown":
+                            cmd = "chown"  # Keep chown as is
                         
                         # Linux/Windows command mapping
                         if os_name == "Windows":
@@ -329,6 +368,36 @@ def main_loop():
                                 cmd = "move" + cmd[2:]
                             elif cmd_lower.startswith("cp "):
                                 cmd = "copy" + cmd[2:]
+                            elif cmd_lower.startswith("rmdir "):
+                                cmd = "rmdir " + cmd[5:]
+                            elif cmd_lower.startswith("mkdir "):
+                                cmd = "md " + cmd[5:]  # Linux mkdir to Windows md
+                            elif cmd_lower == "tree":
+                                cmd = "tree"  # Windows tree command
+                            elif cmd_lower == "grep":
+                                cmd = "findstr"  # Linux grep to Windows findstr
+                            elif cmd_lower.startswith("grep "):
+                                cmd = "findstr " + cmd[4:]  # Linux grep to Windows findstr
+                            elif cmd_lower == "ps":
+                                cmd = "tasklist"  # Linux ps to Windows tasklist
+                            elif cmd_lower == "kill":
+                                cmd = "taskkill"  # Linux kill to Windows taskkill
+                            elif cmd_lower.startswith("kill "):
+                                cmd = "taskkill /F /IM " + cmd[4:]  # Linux kill to Windows taskkill
+                            elif cmd_lower == "df":
+                                cmd = "wmic logicaldisk get size,freespace,caption"  # Disk info
+                            elif cmd_lower == "du":
+                                cmd = "dir /s"  # Directory size
+                            elif cmd_lower == "free":
+                                cmd = "wmic OS get TotalVisibleMemorySize,FreePhysicalMemory"  # Memory info
+                            elif cmd_lower == "top":
+                                cmd = "tasklist"  # Process list
+                            elif cmd_lower == "nano" or cmd_lower == "vi" or cmd_lower == "vim":
+                                cmd = "notepad"  # Text editors to notepad
+                            elif cmd_lower.startswith("chmod "):
+                                cmd = "icacls " + cmd[5:]  # Linux chmod to Windows icacls
+                            elif cmd_lower == "ifconfig":
+                                cmd = "ipconfig"  # Keep ifconfig as ipconfig on Windows
                         else:
                             if cmd_lower == "cls":
                                 cmd = "clear"
@@ -336,10 +405,60 @@ def main_loop():
                                 cmd = "ls"
                             elif cmd_lower == "ipconfig":
                                 cmd = "ip addr"
+                            elif cmd_lower == "ifconfig":
+                                cmd = "ip addr"
                             elif cmd_lower == "tasklist":
+                                cmd = "ps aux"
+                            elif cmd_lower == "tasklist /svc":  # Windows style
                                 cmd = "ps aux"
                             elif cmd_lower == "systeminfo":
                                 cmd = "uname -a"
+                            elif cmd_lower == "ver":
+                                cmd = "uname -a"
+                            elif cmd_lower == "chdir":
+                                cmd = "cd"
+                            elif cmd_lower.startswith("del "):
+                                cmd = "rm " + cmd[3:]  # Windows del to Linux rm
+                            elif cmd_lower.startswith("rmdir "):
+                                cmd = "rmdir " + cmd[5:]
+                            elif cmd_lower.startswith("md "):  # Windows md
+                                cmd = "mkdir " + cmd[2:]
+                            elif cmd_lower.startswith("move "):
+                                cmd = "mv " + cmd[4:]
+                            elif cmd_lower.startswith("copy "):
+                                cmd = "cp " + cmd[4:]
+                            elif cmd_lower.startswith("type "):
+                                cmd = "cat " + cmd[4:]
+                            elif cmd_lower == "tree":
+                                cmd = "tree"  # Keep tree as is
+                            elif cmd_lower == "findstr":
+                                cmd = "grep"  # Windows findstr to Linux grep
+                            elif cmd_lower.startswith("findstr "):
+                                cmd = "grep " + cmd[7:]  # Windows findstr to Linux grep
+                            elif cmd_lower == "notepad":
+                                cmd = "nano"  # Windows notepad to Linux nano
+                            elif cmd_lower.startswith("notepad "):
+                                cmd = "nano " + cmd[7:]  # Windows notepad to Linux nano
+                            elif cmd_lower == "taskkill":
+                                cmd = "kill"  # Windows taskkill to Linux kill
+                            elif cmd_lower.startswith("taskkill "):
+                                cmd = "kill " + cmd[8:]  # Windows taskkill to Linux kill
+                            elif cmd_lower == "wmic":
+                                cmd = "dmidecode"  # Windows wmic to Linux dmidecode
+                            elif cmd_lower.startswith("wmic "):
+                                cmd = "dmidecode " + cmd[4:]  # Windows wmic to Linux dmidecode
+                            elif cmd_lower.startswith("del "):
+                                cmd = "rm " + cmd[3:]  # Windows del to Linux rm
+                            elif cmd_lower.startswith("rmdir "):
+                                cmd = "rmdir " + cmd[5:]
+                            elif cmd_lower.startswith("md "):  # Windows md
+                                cmd = "mkdir " + cmd[2:]
+                            elif cmd_lower.startswith("move "):
+                                cmd = "mv " + cmd[4:]
+                            elif cmd_lower.startswith("copy "):
+                                cmd = "cp " + cmd[4:]
+                            elif cmd_lower.startswith("type "):
+                                cmd = "cat " + cmd[4:]
                         
                         # Regular command
                         try:
@@ -359,7 +478,11 @@ def main_loop():
                                     output = f"✓ Command executed successfully: {cmd}".encode()
                             else:
                                 if result.stderr and len(result.stderr.strip()) > 0:
-                                    output = result.stderr
+                                    # Check for permission denied and provide helpful message
+                                    if "Permission denied" in result.stderr.decode(errors='ignore'):
+                                        output = f"❌ Permission denied. Try 'sudo {cmd}' or check directory permissions".encode()
+                                    else:
+                                        output = result.stderr
                                 else:
                                     output = f"Command failed with code {result.returncode}".encode()
                                 

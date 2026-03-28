@@ -375,24 +375,100 @@ def handle_special_response(response):
     elif resp_type == "SYSINFO":
         terminal_output.insert(tk.END, json.dumps(response, indent=2) + "\n", "output")
 
+def show_original_size(image):
+    """Display screenshot at 100% original size for perfect text clarity"""
+    try:
+        # Create new window for original size view
+        original_window = tk.Toplevel(root)
+        original_window.title("📸 Original Size (100% - Perfect Text)")
+        original_window.configure(bg="#1E1E1E")
+        
+        # Get original image dimensions
+        img_width, img_height = image.size
+        
+        # Set window size to match image (with small padding)
+        window_width = img_width + 40
+        window_height = img_height + 100  # Extra space for header
+        
+        # Ensure window fits on screen
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        
+        if window_width > screen_width:
+            window_width = screen_width - 50
+        if window_height > screen_height:
+            window_height = screen_height - 50
+        
+        original_window.geometry(f"{window_width}x{window_height}")
+        
+        # Header
+        header = tk.Frame(original_window, bg="#263238", height=60)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        
+        tk.Label(header, text="📸 Original Size - Perfect Text Clarity", font=("Segoe UI", 12, "bold"), bg="#263238", fg="#FFFFFF").pack(side="left", padx=20, pady=15)
+        tk.Label(header, text=f"Resolution: {img_width}x{img_height}", font=("Segoe UI", 10), bg="#263238", fg="#90CAF9").pack(side="left", padx=10, pady=15)
+        
+        tk.Button(header, text="✗ Close", command=original_window.destroy, font=("Segoe UI", 11), bg="#757575", fg="white", relief="flat", padx=25, pady=8, cursor="hand2").pack(side="right", padx=20, pady=10)
+        
+        # Scrollable frame for large images
+        canvas = tk.Canvas(original_window, bg="#1E1E1E")
+        scrollbar_v = tk.Scrollbar(original_window, orient="vertical", command=canvas.yview)
+        scrollbar_h = tk.Scrollbar(original_window, orient="horizontal", command=canvas.xview)
+        scrollable_frame = tk.Frame(canvas, bg="#1E1E1E")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar_v.set, xscrollcommand=scrollbar_h.set)
+        
+        # Display image at original size
+        photo = ImageTk.PhotoImage(image)
+        label = tk.Label(scrollable_frame, image=photo, bg="#1E1E1E")
+        label.image = photo  # Keep a reference
+        label.pack(padx=20, pady=20)
+        
+        # Pack scrollable widgets
+        canvas.pack(side="left", fill="both", expand=True, padx=(20, 0), pady=(0, 20))
+        scrollbar_v.pack(side="right", fill="y", pady=(0, 20))
+        scrollbar_h.pack(side="bottom", fill="x", padx=(20, 0))
+        
+        log_message(f"Opened original size view: {img_width}x{img_height}", "INFO")
+        
+    except Exception as e:
+        log_message(f"Error showing original size: {e}", "ERROR")
+        messagebox.showerror("Error", f"Failed to show original size:\n{str(e)}")
+
 def show_screenshot(img_data_b64):
     """Display screenshot in new window"""
     try:
         img_data = base64.b64decode(img_data_b64)
-        image = Image.open(io.BytesIO(img_data))
+        original_image = Image.open(io.BytesIO(img_data))
         
-        # Resize for display
-        max_size = (800, 600)  # Reduced from 1200x800 for faster display
-        image.thumbnail(max_size, Image.Resampling.LANCZOS)
+        # Create a copy for display (keep original for saving)
+        display_image = original_image.copy()
+        
+        # Resize only the display copy with better quality for text
+        max_size = (1600, 1200)  # Further increased for maximum display quality
+        
+        # Use high-quality resampling for better text clarity
+        display_image.thumbnail(max_size, Image.Resampling.LANCZOS)
+        
+        # Apply stronger sharpening to improve text readability
+        from PIL import ImageFilter
+        display_image = display_image.filter(ImageFilter.UnsharpMask(radius=1, percent=200, threshold=2))
         
         # Create window
         screenshot_window = tk.Toplevel(root)
         screenshot_window.title("📸 Client Screenshot")
         screenshot_window.configure(bg="#1E1E1E")
-        screenshot_window.geometry("800x650")  # Reduced from 1000x750
+        screenshot_window.geometry("1600x1000")  # Further increased window size
         
-        # Store PIL image for saving
-        screenshot_window.pil_image = image
+        # Store ORIGINAL PIL image for saving (not the resized one)
+        screenshot_window.pil_image = original_image
         
         # Save function
         def save_img():
@@ -405,14 +481,26 @@ def show_screenshot(img_data_b64):
                 img_format = "JPEG"
                 filename_ext = ".jpg"
             
+            # Add option for original format
+            filetypes = [
+                ("Original Quality", "*" + filename_ext),
+                ("JPEG files", "*.jpg"), 
+                ("PNG files", "*.png"), 
+                ("All files", "*.*")
+            ]
+            
             filename = filedialog.asksaveasfilename(
                 defaultextension=filename_ext, 
-                filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")],
+                filetypes=filetypes,
                 initialfile=f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}{filename_ext}"
             )
             if filename:
                 try:
-                    screenshot_window.pil_image.save(filename, img_format)
+                    # Save with maximum quality
+                    if img_format == "JPEG":
+                        screenshot_window.pil_image.save(filename, img_format, quality=98, optimize=True, progressive=True)
+                    else:
+                        screenshot_window.pil_image.save(filename, img_format, optimize=True, compress_level=1)
                     log_message(f"Screenshot saved: {filename} ({img_format})", "SUCCESS")
                     messagebox.showinfo("Success", f"Screenshot saved successfully!\n\nFormat: {img_format}\nFile: {filename}")
                 except Exception as e:
@@ -427,18 +515,19 @@ def show_screenshot(img_data_b64):
         # Left side - title
         tk.Label(header, text="📸 Client Screenshot", font=("Segoe UI", 14, "bold"), bg="#263238", fg="#FFFFFF").pack(side="left", padx=20, pady=15)
         
-        # Right side - save and close buttons
+        # Right side - save, original size, and close buttons
         btn_frame = tk.Frame(header, bg="#263238")
         btn_frame.pack(side="right", padx=20, pady=10)
         
         tk.Button(btn_frame, text="💾 Save", command=save_img, font=("Segoe UI", 11, "bold"), bg="#4CAF50", fg="white", relief="flat", padx=25, pady=8, cursor="hand2").pack(side="left", padx=5)
+        tk.Button(btn_frame, text="🔍 100% Size", command=lambda: show_original_size(original_image), font=("Segoe UI", 11, "bold"), bg="#2196F3", fg="white", relief="flat", padx=25, pady=8, cursor="hand2").pack(side="left", padx=5)
         tk.Button(btn_frame, text="✗ Close", command=screenshot_window.destroy, font=("Segoe UI", 11), bg="#757575", fg="white", relief="flat", padx=25, pady=8, cursor="hand2").pack(side="left", padx=5)
         
         # Image container
         img_container = tk.Frame(screenshot_window, bg="#1E1E1E")
         img_container.pack(fill="both", expand=True, padx=20, pady=(10, 20))
         
-        photo = ImageTk.PhotoImage(image)
+        photo = ImageTk.PhotoImage(display_image)
         
         label = tk.Label(img_container, image=photo, bg="#1E1E1E")
         label.image = photo
@@ -967,29 +1056,93 @@ tk.Button(terminal_header, text="💾", command=save_terminal, font=("Segoe UI",
 tk.Button(terminal_header, text="🗑️", command=clear_terminal, font=("Segoe UI", 12), bg="#263238", fg="#90CAF9", relief="flat", padx=12, cursor="hand2", borderwidth=0).pack(side="right", padx=8)
 
 # Terminal Output (editable like real terminal)
-terminal_output = scrolledtext.ScrolledText(terminal_section, font=("Consolas", 11), bg="#0D1117", fg="#C9D1D9", insertbackground="#58A6FF", relief="flat", wrap="word", padx=25, pady=20, state="normal")
+# Detect OS and set appropriate font
+import platform
+current_os = platform.system()
+
+if current_os == "Windows":
+    terminal_font = ("Consolas", 11)  # Windows Command Prompt style
+    terminal_bg = "#000000"  # Black background like Windows terminal
+    terminal_fg = "#00FF00"  # Green text like classic Windows
+elif current_os == "Linux":
+    terminal_font = ("Ubuntu Mono", 11)  # Linux terminal style
+    terminal_bg = "#300A24"  # Dark background like Linux terminal
+    terminal_fg = "#FFFFFF"  # White text like Linux terminal
+else:
+    terminal_font = ("Courier New", 11)  # Fallback monospace
+    terminal_bg = "#1E1E1E"  # Dark theme
+    terminal_fg = "#C9D1D9"  # GitHub terminal style
+
+terminal_output = scrolledtext.ScrolledText(
+        terminal_section, 
+        font=terminal_font, 
+        bg=terminal_bg, 
+        fg=terminal_fg, 
+        insertbackground="#58A6FF", 
+        relief="flat", 
+        wrap="word", 
+        padx=25, 
+        pady=20, 
+        state="normal"
+    )
 terminal_output.pack(fill="both", expand=True)
 
-# Terminal tags
-terminal_output.tag_config("prompt", foreground="#58A6FF", font=("Consolas", 12, "bold"))
-terminal_output.tag_config("command", foreground="#79C0FF", font=("Consolas", 12, "bold"))
-terminal_output.tag_config("output", foreground="#C9D1D9", font=("Consolas", 11))
-terminal_output.tag_config("success", foreground="#3FB950", font=("Consolas", 12, "bold"))
-terminal_output.tag_config("error", foreground="#F85149", font=("Consolas", 12, "bold"))
-terminal_output.tag_config("warning", foreground="#D29922", font=("Consolas", 12))
-terminal_output.tag_config("separator", foreground="#30363D", font=("Consolas", 11))
+# Terminal tags - OS-specific colors
+if current_os == "Windows":
+    # Windows Command Prompt colors
+    terminal_output.tag_config("prompt", foreground="#00FF00", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("command", foreground="#FFFFFF", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("output", foreground="#00FF00", font=("Consolas", 11))
+    terminal_output.tag_config("success", foreground="#00FFFF", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("error", foreground="#FF0000", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("warning", foreground="#FFFF00", font=("Consolas", 12))
+    terminal_output.tag_config("separator", foreground="#808080", font=("Consolas", 11))
+    terminal_output.tag_config("loading", foreground="#00FFFF", font=("Consolas", 11))
+elif current_os == "Linux":
+    # Linux terminal colors
+    terminal_output.tag_config("prompt", foreground="#00FF00", font=("Ubuntu Mono", 12, "bold"))
+    terminal_output.tag_config("command", foreground="#FFFFFF", font=("Ubuntu Mono", 12, "bold"))
+    terminal_output.tag_config("output", foreground="#FFFFFF", font=("Ubuntu Mono", 11))
+    terminal_output.tag_config("success", foreground="#00FF00", font=("Ubuntu Mono", 12, "bold"))
+    terminal_output.tag_config("error", foreground="#FF0000", font=("Ubuntu Mono", 12, "bold"))
+    terminal_output.tag_config("warning", foreground="#FFFF00", font=("Ubuntu Mono", 12))
+    terminal_output.tag_config("separator", foreground="#808080", font=("Ubuntu Mono", 11))
+    terminal_output.tag_config("loading", foreground="#00FFFF", font=("Ubuntu Mono", 11))
+else:
+    # Default colors
+    terminal_output.tag_config("prompt", foreground="#58A6FF", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("command", foreground="#79C0FF", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("output", foreground="#C9D1D9", font=("Consolas", 11))
+    terminal_output.tag_config("success", foreground="#3FB950", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("error", foreground="#F85149", font=("Consolas", 12, "bold"))
+    terminal_output.tag_config("warning", foreground="#D29922", font=("Consolas", 12))
+    terminal_output.tag_config("separator", foreground="#30363D", font=("Consolas", 11))
 terminal_output.tag_config("loading", foreground="#FFA657", font=("Consolas", 11, "italic"))
 terminal_output.tag_config("no_output", foreground="#6E7681", font=("Consolas", 11, "italic"))
 terminal_output.tag_config("readonly", foreground="#C9D1D9", font=("Consolas", 11))
 
-# Welcome
-terminal_output.insert(tk.END, "╔" + "═"*78 + "╗\n", "separator")
-terminal_output.insert(tk.END, "  REMOTE ADMINISTRATION TOOL - Enterprise Edition v2.0\n", "success")
-terminal_output.insert(tk.END, "  Features: Multi-Client | Screenshot | File Transfer | Full Control\n", "output")
-terminal_output.insert(tk.END, "╚" + "═"*78 + "╝\n\n", "separator")
-terminal_output.insert(tk.END, "Click 'Start Server' to begin accepting client connections.\n", "output")
-terminal_output.insert(tk.END, "All OS commands supported: mkdir, ls/dir, cd, cat/type, cp/copy, rm/del, etc.\n\n", "output")
-terminal_output.insert(tk.END, "Remote-Admin> ", "prompt")
+# Welcome - OS-specific terminal welcome
+if current_os == "Windows":
+    # Windows Command Prompt style
+    terminal_output.insert(tk.END, "Microsoft Windows [Version 10.0.19045.2364]\n", "output")
+    terminal_output.insert(tk.END, "(c) 2024 Microsoft Corporation. All rights reserved.\n", "output")
+    terminal_output.insert(tk.END, "\nC:\\Users\\RemoteAdmin> ", "prompt")
+elif current_os == "Linux":
+    # Linux terminal style
+    import os
+    username = os.getenv('USER', 'user')
+    hostname = os.getenv('HOSTNAME', 'localhost')
+    terminal_output.insert(tk.END, f"┌─({username}@{hostname})─[~]\n", "prompt")
+    terminal_output.insert(tk.END, "└─$ ", "prompt")
+else:
+    # Default welcome
+    terminal_output.insert(tk.END, "╔" + "═"*78 + "╗\n", "separator")
+    terminal_output.insert(tk.END, "  REMOTE ADMINISTRATION TOOL - Enterprise Edition v2.0\n", "success")
+    terminal_output.insert(tk.END, "  Features: Multi-Client | Screenshot | File Transfer | Full Control\n", "output")
+    terminal_output.insert(tk.END, "╚" + "═"*78 + "╝\n\n", "separator")
+    terminal_output.insert(tk.END, "Click 'Start Server' to begin accepting client connections.\n", "output")
+    terminal_output.insert(tk.END, "All OS commands supported: mkdir, ls/dir, cd, cat/type, cp/copy, rm/del, etc.\n\n", "output")
+    terminal_output.insert(tk.END, "Remote-Admin> ", "prompt")
 
 # Mark all existing content as readonly
 terminal_output.mark_set("input_start", "end-1c")
