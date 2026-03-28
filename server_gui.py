@@ -139,6 +139,8 @@ def start_server():
             disconnect_btn.config(state="disabled")
     
     threading.Thread(target=server_thread, daemon=True).start()
+    # Start connection monitoring
+    threading.Thread(target=check_client_connections, daemon=True).start()
 
 def stop_server():
     """Stop server and disconnect all clients"""
@@ -248,7 +250,7 @@ def execute_command(cmd, cmd_name):
         # Use update_idletasks instead of update for smoother UI
         root.update_idletasks()
         
-        data = conn.recv(2097152)  # 2MB buffer for large screenshots
+        data = conn.recv(4194304)  # 4MB buffer for large screenshots
         output = data.decode(errors="ignore")
         
         # Remove loading
@@ -256,19 +258,27 @@ def execute_command(cmd, cmd_name):
         
         # Check if JSON response (special commands)
         try:
-            response = json.loads(output)
-            handle_special_response(response)
+            # Try to find JSON in the output (in case there's extra text)
+            json_start = output.find('{')
+            json_end = output.rfind('}')
+            
+            if json_start != -1 and json_end != -1 and json_end > json_start:
+                json_str = output[json_start:json_end+1]
+                response = json.loads(json_str)
+                handle_special_response(response)
+            else:
+                # No JSON found, display as regular output
+                if output.strip():
+                    terminal_output.insert(tk.END, output + "\n", "output")
         except json.JSONDecodeError as e:
-            # Not JSON, display as regular output
+            # Not valid JSON, display as regular output
             if output.strip():
-                terminal_output.insert(tk.END, output + "\n", "output")
+                terminal_output.insert(tk.END, output[:1000] + "...\n", "output")
         except Exception as e:
-            # JSON parsing failed for other reasons
+            # Other error
             log_message(f"Screenshot handling error: {str(e)}", "ERROR")
             if output.strip():
                 terminal_output.insert(tk.END, output[:500] + "...\n", "output")
-            else:
-                terminal_output.insert(tk.END, "(No output)\n", "no_output")
         
         terminal_output.insert(tk.END, "\n", "output")
         log_message(f"Completed: {cmd}", "SUCCESS")
@@ -477,6 +487,65 @@ def disconnect_active_client():
         
         terminal_output.insert(tk.END, "\n⚠ Client disconnected\n\n", "warning")
         terminal_output.see(tk.END)
+
+def check_client_connections():
+    """Background thread to monitor client connections"""
+    global active_client_id
+    
+    while server_running:
+        try:
+            # Check each client connection
+            disconnected_clients = []
+            
+            for client_id, client_data in list(clients.items()):
+                try:
+                    # Try to check if socket is still connected
+                    conn = client_data["conn"]
+                    # Use select to check if socket is readable (disconnected)
+                    import select
+                    ready, _, _ = select.select([conn], [], [], 0.1)
+                    if ready:
+                        # Try to read data
+                        try:
+                            data = conn.recv(1)
+                            if not data:  # Connection closed
+                                disconnected_clients.append(client_id)
+                        except:
+                            disconnected_clients.append(client_id)
+                except:
+                    disconnected_clients.append(client_id)
+            
+            # Remove disconnected clients and update UI
+            for client_id in disconnected_clients:
+                if client_id in clients:
+                    hostname = clients[client_id].get("info", {}).get("hostname", "Unknown")
+                    del clients[client_id]
+                    
+                    log_message(f"⚠️ Client disconnected: {hostname}", "WARNING")
+                    
+                    # Update UI in main thread
+                    root.after(0, update_client_list)
+                    
+                    # If active client disconnected
+                    if client_id == active_client_id:
+                        active_client_id = None
+                        root.after(0, lambda: update_status("Client disconnected", "#FF7043", "⚠"))
+                        root.after(0, lambda: disconnect_btn.config(state="disabled"))
+                        root.after(0, lambda: [btn.config(state="disabled") for btn in command_buttons])
+                        root.after(0, lambda: terminal_output.config(state="disabled"))
+                        root.after(0, lambda: terminal_output.insert(tk.END, "\n⚠ Client connection lost\n\n", "warning"))
+                        root.after(0, lambda: terminal_output.see(tk.END))
+                        
+                        # Auto-select next client if available
+                        if clients:
+                            root.after(100, lambda: select_client(0))
+            
+            # Check every 2 seconds
+            time.sleep(2)
+            
+        except Exception as e:
+            time.sleep(2)
+            continue
 
 def save_terminal():
     """Save terminal output"""
