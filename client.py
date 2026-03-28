@@ -110,16 +110,16 @@ def take_screenshot():
                     screenshot = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
         
         # Compress and resize for network transfer
-        max_size = (1920, 1080)  # Max resolution
+        max_size = (1280, 720)  # Reduced from 1920x1080 for faster processing
         screenshot.thumbnail(max_size, Image.Resampling.LANCZOS)
         
         buffer = io.BytesIO()
-        # Use JPEG with compression for smaller size (PNG too large)
-        screenshot.save(buffer, format='JPEG', quality=85, optimize=True)
+        # Use JPEG with higher compression for much smaller size
+        screenshot.save(buffer, format='JPEG', quality=60, optimize=True)
         img_data = base64.b64encode(buffer.getvalue()).decode()
         
-        # Check size - if still too large, compress more
-        if len(img_data) > 500000:  # ~500KB limit
+        # Check size - if still too large, compress more aggressively
+        if len(img_data) > 200000:  # ~200KB limit instead of 500KB
             buffer = io.BytesIO()
             screenshot.save(buffer, format='JPEG', quality=60, optimize=True)
             img_data = base64.b64encode(buffer.getvalue()).decode()
@@ -206,6 +206,12 @@ def main_loop():
                         print("✓ Exit command received")
                         client.close()
                         return
+                    
+                    elif cmd.lower() == "shutdown_client":
+                        print("✓ Server requested client shutdown")
+                        client.close()
+                        print("🔴 Client terminated by server")
+                        exit(0)  # Completely exit the client process
 
                     # Special commands
                     if cmd == "SCREENSHOT":
@@ -364,9 +370,15 @@ def main_loop():
 
                     client.send(output)
 
+                except ConnectionResetError:
+                    print("⚠️ Server disconnected")
+                    break  # Exit inner loop, will reconnect
+                except ConnectionAbortedError:
+                    print("⚠️ Server closed connection")
+                    break  # Exit inner loop, will reconnect
                 except Exception as e:
                     print(f"⚠️ Connection error: {e}")
-                    break
+                    break  # Exit inner loop, will reconnect
             
             # Connection lost, close and retry
             try:

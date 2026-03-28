@@ -45,6 +45,7 @@ def print_menu():
     print("  [clients]    - List all connected clients")
     print("  [switch]     - Switch to different client")
     print("  [info]       - Show current client info")
+    print("  [shutdown_client] - Terminate client process completely")
     print("")
     print("  [menu] - Show this menu  |  [exit] - Disconnect current client")
     print("-"*80 + "\n")
@@ -337,6 +338,30 @@ while True:
         if cmd.lower() == "exit":
             print("✓ Disconnecting client...\n")
             try:
+                conn.close()
+            except:
+                pass
+            del clients[active_client_id]
+            active_client_id = None
+            
+            if clients:
+                active_client_id = list(clients.keys())[0]
+                info = clients[active_client_id].get("info", {})
+                print(f"✓ Switched to: {info.get('hostname', 'Unknown')}\n")
+            else:
+                print("⚠️  No more clients. Waiting for new connection...\n")
+                while not clients:
+                    time.sleep(1)
+                active_client_id = list(clients.keys())[0]
+                info = clients[active_client_id].get("info", {})
+                print(f"✓ New client connected: {info.get('hostname', 'Unknown')}\n")
+            continue
+        
+        elif cmd.lower() == "shutdown_client":
+            print("🔴 Terminating client process...\n")
+            try:
+                conn.send("shutdown_client".encode())
+                time.sleep(0.5)
                 conn.close()
             except:
                 pass
