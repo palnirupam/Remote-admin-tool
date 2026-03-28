@@ -519,6 +519,8 @@ MIT License © 2024 Nirupam Pal
 
 <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License"/>
 
+[📄 View Full License](LICENSE)
+
 </div>
 
 ---
