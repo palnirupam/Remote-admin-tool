@@ -421,6 +421,16 @@ For real-world use, consider these secure alternatives:
 
 <div align="center">
 
+### ⚖️ Disclaimer
+
+**THE AUTHOR IS NOT RESPONSIBLE FOR ANY MISUSE OR DAMAGE CAUSED BY THIS SOFTWARE.**
+
+By using this tool, you agree to:
+- Use it only on systems you own or have explicit permission to access
+- Not use it for any illegal, malicious, or unauthorized purposes
+- Accept full responsibility for your actions
+- Understand that the author bears NO LIABILITY for consequences of use
+
 ### 🎓 Learning Objectives
 
 This tool is perfect for understanding:
@@ -429,7 +439,7 @@ This tool is perfect for understanding:
 - Network security vulnerabilities
 - Why encryption and authentication matter
 
-**Use responsibly and only on systems you own or have permission to access!**
+**Use responsibly and ethically. Always obtain proper authorization!**
 
 </div>
 
