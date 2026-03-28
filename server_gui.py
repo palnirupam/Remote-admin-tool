@@ -751,19 +751,37 @@ def configure_scroll_region(event=None):
 left_panel.bind("<Configure>", configure_scroll_region)
 left_canvas.bind("<Configure>", configure_scroll_region)
 
-# Mouse wheel scrolling - only for left panel area
+# Mouse wheel scrolling - smooth for left panel area
 def on_left_mousewheel(event):
-    left_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    """Smooth mouse wheel scrolling"""
+    # Get scroll direction and amount
+    if event.delta:
+        scroll_amount = int(-1 * (event.delta / 60))  # Smoother scroll (was 120)
+    else:
+        scroll_amount = -1 if event.num == 4 else 1
+    
+    # Scroll the canvas
+    left_canvas.yview_scroll(scroll_amount, "units")
+    return "break"  # Prevent scrolling other widgets
 
-def bind_mousewheel(event):
-    left_canvas.bind_all("<MouseWheel>", on_left_mousewheel)
+# Bind mouse wheel to canvas directly for smoother scrolling
+def bind_left_mousewheel():
+    """Bind mouse wheel events to left canvas"""
+    # Bind for Windows (MouseWheel)
+    left_canvas.bind("<MouseWheel>", on_left_mousewheel)
+    # Bind for Linux (Button-4/5)
+    left_canvas.bind("<Button-4>", on_left_mousewheel)
+    left_canvas.bind("<Button-5>", on_left_mousewheel)
 
-def unbind_mousewheel(event):
-    left_canvas.unbind_all("<MouseWheel>")
+def unbind_left_mousewheel():
+    """Unbind mouse wheel events from left canvas"""
+    left_canvas.unbind("<MouseWheel>")
+    left_canvas.unbind("<Button-4>")
+    left_canvas.unbind("<Button-5>")
 
-# Bind mouse wheel only when mouse is over left panel
-left_panel_container.bind("<Enter>", bind_mousewheel)
-left_panel_container.bind("<Leave>", unbind_mousewheel)
+# Bind enter/leave to enable/disable scrolling
+left_panel_container.bind("<Enter>", lambda e: bind_left_mousewheel())
+left_panel_container.bind("<Leave>", lambda e: unbind_left_mousewheel())
 
 # Client List Section
 tk.Label(left_panel, text="👥 CONNECTED CLIENTS", font=("Segoe UI", 11, "bold"), bg="#FFFFFF", fg="#424242").pack(anchor="w", padx=20, pady=(20, 10))
