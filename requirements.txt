@@ -1,0 +1,7 @@
+# Remote Admin Tool - Python Dependencies
+# Auto-installed by client.py, but can also install manually:
+# pip install -r requirements.txt
+
+# Screenshot capture (cross-platform)
+Pillow>=9.0.0
+mss>=7.0.0

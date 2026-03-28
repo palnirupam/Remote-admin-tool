@@ -6,9 +6,20 @@ import time
 import json
 import base64
 import os
+import io
 from datetime import datetime
 from PIL import Image, ImageTk
-import io
+# Performance optimizations for Linux
+import sys
+if sys.platform.startswith('linux'):
+    # Disable tkinter busy waiting on Linux
+    os.environ['TK_SILENCE_DEPRECATION'] = '1'
+
+def debounce_update(widget, delay=50):
+    """Debounce UI updates for smoother rendering"""
+    if hasattr(widget, '_update_job'):
+        widget.after_cancel(widget._update_job)
+    widget._update_job = widget.after(delay, lambda: widget.update_idletasks())
 
 HOST = "0.0.0.0"
 PORT = 5000
@@ -21,7 +32,7 @@ server_running = False
 server_socket = None
 
 def log_message(message, level="INFO"):
-    """Add timestamped log"""
+    """Add timestamped log - optimized"""
     timestamp = datetime.now().strftime("%H:%M:%S")
     log_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
     
@@ -34,7 +45,10 @@ def log_message(message, level="INFO"):
     elif level == "WARNING":
         log_text.insert(tk.END, f"⚠  {message}\n", "warning")
     
-    log_text.see(tk.END)
+    # Use debounced update for smoother UI
+    if hasattr(log_text, '_update_job'):
+        log_text.after_cancel(log_text._update_job)
+    log_text._update_job = log_text.after(50, lambda: log_text.see(tk.END))
 
 def update_status(text, color, icon):
     """Update status bar"""
@@ -231,9 +245,10 @@ def execute_command(cmd, cmd_name):
         
         terminal_output.insert(tk.END, "⏳ Executing...\n", "loading")
         terminal_output.see(tk.END)
-        terminal_output.update()
+        # Use update_idletasks instead of update for smoother UI
+        root.update_idletasks()
         
-        data = conn.recv(65536)
+        data = conn.recv(2097152)  # 2MB buffer for large screenshots
         output = data.decode(errors="ignore")
         
         # Remove loading
@@ -243,10 +258,15 @@ def execute_command(cmd, cmd_name):
         try:
             response = json.loads(output)
             handle_special_response(response)
-        except:
-            # Regular command output
+        except json.JSONDecodeError as e:
+            # Not JSON, display as regular output
             if output.strip():
                 terminal_output.insert(tk.END, output + "\n", "output")
+        except Exception as e:
+            # JSON parsing failed for other reasons
+            log_message(f"Screenshot handling error: {str(e)}", "ERROR")
+            if output.strip():
+                terminal_output.insert(tk.END, output[:500] + "...\n", "output")
             else:
                 terminal_output.insert(tk.END, "(No output)\n", "no_output")
         
@@ -302,46 +322,58 @@ def show_screenshot(img_data_b64):
         screenshot_window.configure(bg="#1E1E1E")
         screenshot_window.geometry("1000x750")
         
-        # Header
-        header = tk.Frame(screenshot_window, bg="#263238", height=50)
+        # Store PIL image for saving
+        screenshot_window.pil_image = image
+        
+        # Save function
+        def save_img():
+            # Detect format from image data
+            img_format = "PNG"
+            filename_ext = ".png"
+            
+            # Check if it's JPEG (starts with /9j/ in base64)
+            if img_data_b64.startswith('/9j/'):
+                img_format = "JPEG"
+                filename_ext = ".jpg"
+            
+            filename = filedialog.asksaveasfilename(
+                defaultextension=filename_ext, 
+                filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")],
+                initialfile=f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}{filename_ext}"
+            )
+            if filename:
+                try:
+                    screenshot_window.pil_image.save(filename, img_format)
+                    log_message(f"Screenshot saved: {filename} ({img_format})", "SUCCESS")
+                    messagebox.showinfo("Success", f"Screenshot saved successfully!\n\nFormat: {img_format}\nFile: {filename}")
+                except Exception as e:
+                    log_message(f"Error saving screenshot: {e}", "ERROR")
+                    messagebox.showerror("Error", f"Failed to save screenshot:\n{str(e)}")
+        
+        # Header with save button
+        header = tk.Frame(screenshot_window, bg="#263238", height=60)
         header.pack(fill="x")
         header.pack_propagate(False)
         
-        tk.Label(header, text="📸 Client Screenshot", font=("Segoe UI", 13, "bold"), bg="#263238", fg="#FFFFFF").pack(side="left", padx=20, pady=12)
+        # Left side - title
+        tk.Label(header, text="📸 Client Screenshot", font=("Segoe UI", 14, "bold"), bg="#263238", fg="#FFFFFF").pack(side="left", padx=20, pady=15)
+        
+        # Right side - save and close buttons
+        btn_frame = tk.Frame(header, bg="#263238")
+        btn_frame.pack(side="right", padx=20, pady=10)
+        
+        tk.Button(btn_frame, text="💾 Save", command=save_img, font=("Segoe UI", 11, "bold"), bg="#4CAF50", fg="white", relief="flat", padx=25, pady=8, cursor="hand2").pack(side="left", padx=5)
+        tk.Button(btn_frame, text="✗ Close", command=screenshot_window.destroy, font=("Segoe UI", 11), bg="#757575", fg="white", relief="flat", padx=25, pady=8, cursor="hand2").pack(side="left", padx=5)
         
         # Image container
         img_container = tk.Frame(screenshot_window, bg="#1E1E1E")
-        img_container.pack(fill="both", expand=True, padx=20, pady=20)
+        img_container.pack(fill="both", expand=True, padx=20, pady=(10, 20))
         
         photo = ImageTk.PhotoImage(image)
         
         label = tk.Label(img_container, image=photo, bg="#1E1E1E")
         label.image = photo
         label.pack()
-        
-        screenshot_window.pil_image = image  # Store PIL image for saving
-        
-        # Save button
-        def save_img():
-            filename = filedialog.asksaveasfilename(
-                defaultextension=".png", 
-                filetypes=[("PNG files", "*.png"), ("JPEG files", "*.jpg"), ("All files", "*.*")],
-                initialfile=f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-            )
-            if filename:
-                try:
-                    screenshot_window.pil_image.save(filename, "PNG")
-                    log_message(f"Screenshot saved: {filename}", "SUCCESS")
-                    messagebox.showinfo("Success", f"Screenshot saved successfully!\n\n{filename}")
-                except Exception as e:
-                    log_message(f"Error saving screenshot: {e}", "ERROR")
-                    messagebox.showerror("Error", f"Failed to save screenshot:\n{str(e)}")
-        
-        btn_frame = tk.Frame(screenshot_window, bg="#1E1E1E")
-        btn_frame.pack(pady=(0, 20))
-        
-        tk.Button(btn_frame, text="💾 Save Screenshot", command=save_img, font=("Segoe UI", 11, "bold"), bg="#1976D2", fg="white", relief="flat", padx=30, pady=12, cursor="hand2").pack(side="left", padx=5)
-        tk.Button(btn_frame, text="✗ Close", command=screenshot_window.destroy, font=("Segoe UI", 11), bg="#757575", fg="white", relief="flat", padx=30, pady=12, cursor="hand2").pack(side="left", padx=5)
         
         terminal_output.insert(tk.END, "✓ Screenshot captured and displayed\n", "success")
         log_message("Screenshot captured", "SUCCESS")
@@ -685,11 +717,11 @@ commands_container.pack(fill="x", padx=15)
 command_buttons = []
 
 commands = [
-    ("Network Info", "ipconfig", "🌐", "#2196F3"),
+    ("Network Info", "NETWORK_INFO", "🌐", "#2196F3"),
     ("Current User", "whoami", "👤", "#9C27B0"),
-    ("List Files", "dir", "📁", "#FF9800"),
-    ("System Info", "systeminfo", "💻", "#4CAF50"),
-    ("Processes", "tasklist", "📊", "#00BCD4"),
+    ("List Files", "LIST_FILES", "📁", "#FF9800"),
+    ("System Info", "SYSTEM_INFO", "💻", "#4CAF50"),
+    ("Processes", "PROCESSES", "📊", "#00BCD4"),
     ("Current Path", "cd", "📍", "#E91E63")
 ]
 
@@ -724,9 +756,9 @@ sys_frame.pack(fill="x", padx=15, pady=(15, 10))
 tk.Label(sys_frame, text="⚙️ SYSTEM CONTROL", font=("Segoe UI", 10, "bold"), bg="#FFEBEE", fg="#C62828").pack(anchor="w", padx=12, pady=(12, 10))
 
 sys_btns = [
-    ("🔄 Restart System", "shutdown /r /t 0", "#FF5722"),
-    ("⏻ Shutdown System", "shutdown /s /t 0", "#D32F2F"),
-    ("🔒 Lock Workstation", "rundll32.exe user32.dll,LockWorkStation", "#F57C00")
+    ("🔄 Restart System", "RESTART", "#FF5722"),
+    ("⏻ Shutdown System", "SHUTDOWN", "#D32F2F"),
+    ("🔒 Lock Workstation", "LOCK", "#F57C00")
 ]
 
 for text, cmd, color in sys_btns:
@@ -743,8 +775,8 @@ proc_frame.pack(fill="x", padx=15, pady=(15, 20))
 tk.Label(proc_frame, text="🎯 PROCESS CONTROL", font=("Segoe UI", 10, "bold"), bg="#E1F5FE", fg="#01579B").pack(anchor="w", padx=12, pady=(12, 10))
 
 proc_btns = [
-    ("🔍 Find Process", "tasklist | findstr", "#0288D1"),
-    ("❌ Kill Process", "taskkill /F /IM", "#D32F2F")
+    ("🔍 Find Process", "FIND_PROCESS:", "#0288D1"),
+    ("❌ Kill Process", "KILL_PROCESS:", "#D32F2F")
 ]
 
 for text, cmd_prefix, color in proc_btns:
@@ -800,7 +832,7 @@ terminal_output.insert(tk.END, "  REMOTE ADMINISTRATION TOOL - Enterprise Editio
 terminal_output.insert(tk.END, "  Features: Multi-Client | Screenshot | File Transfer | Full Control\n", "output")
 terminal_output.insert(tk.END, "╚" + "═"*78 + "╝\n\n", "separator")
 terminal_output.insert(tk.END, "Click 'Start Server' to begin accepting client connections.\n", "output")
-terminal_output.insert(tk.END, "All Windows commands supported: mkdir, dir, cd, type, copy, del, etc.\n\n", "output")
+terminal_output.insert(tk.END, "All OS commands supported: mkdir, ls/dir, cd, cat/type, cp/copy, rm/del, etc.\n\n", "output")
 terminal_output.insert(tk.END, "Remote-Admin> ", "prompt")
 
 # Mark all existing content as readonly
