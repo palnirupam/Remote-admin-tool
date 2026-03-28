@@ -39,18 +39,19 @@ Remote Administration Tool is a powerful Python-based application that enables r
 | ⚡ **Remote Command Execution** | Execute system commands on remote machines |
 | 🖼️ **Enterprise GUI** | Professional Tkinter-based interface with modern design |
 | 💻 **CLI Interface** | Powerful command-line interface for advanced users |
-| 📸 **Screenshot Capture** | Take screenshots from remote clients |
+| 📸 **4K Screenshot Capture** | High-quality screenshots with adaptive resolution (up to 4K) |
 | 📥 **File Download** | Download files from client machines |
 | 📤 **File Upload** | Upload files to client machines |
 | ⚙️ **System Control** | Restart, shutdown, or lock remote systems |
 | 🎯 **Process Management** | Find and kill processes on remote machines |
-| 📊 **Real-time Output** | View command results instantly with syntax highlighting |
-| 🛡️ **Error Handling** | Robust error handling and reporting |
+| 📊 **Real-time Streaming** | View command output in real-time with 120Hz smooth scrolling |
+| 🛡️ **Error Handling** | Robust error handling and crash prevention |
 | 📝 **Activity Logging** | Timestamped logs of all actions and events |
 | 💾 **Export Results** | Save terminal output and logs to files |
-| 🎨 **Quick Commands** | Pre-configured buttons for common operations |
-| ⌨️ **Interactive Terminal** | Type directly in terminal like a real shell |
-| 🖱️ **Scrollable Interface** | Independent scrolling for left panel and terminal |
+| 🎨 **OS-Aware Commands** | Automatic Windows/Linux command detection and adaptation |
+| ⌨️ **Real Terminal Features** | Full Ctrl shortcuts, Tab completion, command history |
+| 🖱️ **120Hz Smooth Scrolling** | Buttery smooth scrolling with easing animation |
+| 🎯 **Interactive Terminal** | Type directly in terminal like a real shell with all shortcuts |
 
 ---
 
@@ -227,15 +228,35 @@ The GUI supports multiple simultaneous client connections:
 
 #### Command Sections
 
-**⚡ QUICK COMMANDS** (6 buttons):
+The GUI automatically detects the client's operating system and shows appropriate commands:
+
+**⚡ QUICK COMMANDS** (OS-Aware - 8 buttons):
+
+**For Windows Clients:**
 | Button | Command | Description |
 |--------|---------|-------------|
-| 🌐 **Network Info** | `ipconfig` | Network adapter details and IP addresses |
+| 🌐 **Network Info** | `ipconfig /all` | Network adapter details and IP addresses |
 | 👤 **Current User** | `whoami` | Display current logged-in user |
 | 📁 **List Files** | `dir` | List files and folders in current directory |
 | 💻 **System Info** | `systeminfo` | Detailed system hardware and OS info |
 | 📊 **Processes** | `tasklist` | List all running processes and PIDs |
 | 📍 **Current Path** | `cd` | Show current working directory |
+| 💾 **Disk Info** | `wmic logicaldisk get name,size,freespace` | Disk space information |
+| 📡 **Network Status** | `netstat -an` | Active network connections |
+
+**For Linux Clients:**
+| Button | Command | Description |
+|--------|---------|-------------|
+| 🌐 **Network Info** | `ifconfig -a` | Network adapter details and IP addresses |
+| 👤 **Current User** | `whoami` | Display current logged-in user |
+| 📁 **List Files** | `ls -la` | List files with details and permissions |
+| 💻 **System Info** | `uname -a` | System kernel and OS information |
+| 📊 **Processes** | `ps aux` | List all running processes with details |
+| 📍 **Current Path** | `pwd` | Print working directory |
+| 💾 **Disk Info** | `df -h` | Disk space in human-readable format |
+| 📡 **Network Status** | `netstat -tuln` | Active TCP/UDP connections |
+
+**Note:** Commands automatically adapt when you switch between Windows and Linux clients!
 
 **🚀 ADVANCED** (3 buttons):
 | Button | Function | Description |
@@ -259,13 +280,45 @@ The GUI supports multiple simultaneous client connections:
 
 #### Interactive Terminal
 
-The terminal works like a real shell:
+The terminal works like a real professional shell with full keyboard shortcuts:
 
-1. **Direct Typing**: Click in the terminal and type commands directly
-2. **Command History**: Use ↑↓ arrow keys to navigate previous commands
-3. **Auto-Complete**: Press Enter to execute
-4. **Prompt Protection**: Cannot delete the "Remote-Admin>" prompt
-5. **Syntax Highlighting**: Commands, output, errors shown in different colors
+**Basic Navigation:**
+- **Direct Typing**: Click in the terminal and type commands directly
+- **Enter**: Execute command
+- **↑↓ Arrow Keys**: Navigate command history
+- **←→ Arrow Keys**: Move cursor (cannot go before prompt)
+- **Home**: Jump to start of input (after prompt)
+- **End**: Jump to end of input
+- **Backspace/Delete**: Smart deletion (cannot delete prompt)
+
+**Advanced Keyboard Shortcuts:**
+- **Tab**: Auto-complete commands (shows matching commands)
+- **Ctrl+A**: Select all input text
+- **Ctrl+C**: Copy selection (or clear input if no selection)
+- **Ctrl+V**: Paste from clipboard
+- **Ctrl+X**: Cut selected text
+- **Ctrl+L**: Clear terminal
+- **Ctrl+U**: Clear from cursor to start of line
+- **Ctrl+K**: Kill from cursor to end of line
+- **Ctrl+W**: Delete word before cursor
+- **Ctrl+D**: Delete character under cursor (or exit if empty)
+- **Ctrl+R**: Reverse search in command history
+
+**Right-Click Context Menu:**
+- 📋 Copy (Ctrl+C)
+- 📄 Paste (Ctrl+V)
+- 🔘 Select All (Ctrl+A)
+- 🗑️ Clear Terminal (Ctrl+L)
+
+**Tab Completion:**
+Type partial command and press Tab to see matching commands:
+```
+Remote-Admin> ip<Tab>
+ipconfig  ifconfig  iptables
+
+Remote-Admin> sys<Tab>
+systeminfo  systemctl
+```
 
 **Example terminal session:**
 ```
@@ -282,10 +335,19 @@ Remote-Admin> mkdir test_folder
 
 #### Screenshot Feature
 
+High-quality screenshot capture with adaptive resolution:
+
 1. Click **"📸 Screenshot"** button or use menu: Tools → Capture Screenshot
 2. Screenshot window opens with the captured image
-3. Click **"💾 Save Screenshot"** to save with timestamp
-4. Supports PNG and JPEG formats
+3. **Quality Levels:**
+   - **4K Displays (3840x2160+)**: JPEG 90% quality
+   - **2K Displays (2560x1440+)**: JPEG 92% quality
+   - **Full HD (1920x1080)**: JPEG 93% quality
+   - **Lower Resolutions**: JPEG 95% quality
+4. Click **"💾 Save 4K"** to save with maximum quality
+5. Click **"🔍 100% Size"** to view at original resolution
+6. Supports PNG and JPEG formats with smart compression
+7. **Memory Safe**: Automatic size management prevents crashes
 
 #### File Transfer
 
@@ -345,14 +407,16 @@ sequenceDiagram
     participant Client
     
     Server->>Server: Start listening on port 5000
-    Client->>Server: Connect request
+    Client->>Server: Connect request + OS info
     Server->>Client: Connection accepted
+    Server->>Server: Detect client OS (Windows/Linux)
+    Server->>Server: Update command buttons for OS
     
     loop Command Execution
         Server->>Client: Send command
-        Client->>Client: Execute command
-        Client->>Server: Send output
-        Server->>Server: Display output
+        Client->>Client: Execute OS-specific command
+        Client->>Server: Stream output in real-time
+        Server->>Server: Display with 120Hz smooth scroll
     end
     
     Server->>Client: Send "exit"
@@ -528,14 +592,21 @@ If you want to use this in a real environment, implement:
 This project is perfect for learning:
 
 - ✅ Socket programming in Python (TCP client-server)
-- ✅ Multi-client connection management
-- ✅ Network communication protocols
+- ✅ Multi-client connection management with threading
+- ✅ Network communication protocols and data streaming
 - ✅ GUI development with Tkinter (Canvas, ScrolledText, custom widgets)
 - ✅ Process management with subprocess
 - ✅ File I/O and base64 encoding for file transfer
-- ✅ Image processing with PIL (screenshot capture)
+- ✅ Image processing with PIL (screenshot capture and compression)
 - ✅ Threading for non-blocking server operations
 - ✅ Error handling and reconnection logic
+- ✅ Cross-platform compatibility (Windows/Linux)
+- ✅ OS detection and adaptive command execution
+- ✅ Real-time data streaming and UI updates
+- ✅ Keyboard event handling and shortcuts
+- ✅ Tab completion and command history
+- ✅ Smooth scrolling with easing animations (120Hz)
+- ✅ Memory management for large data transfers
 - ✅ Property-based testing with Hypothesis
 - ✅ Security considerations in network applications
 

