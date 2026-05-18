@@ -41,7 +41,7 @@ cd Remote-admin-tool
 ### Step 3: Install Dependencies
 
 ```cmd
-pip install pillow mss
+pip install -r requirements.txt
 ```
 
 ### Step 4: Configure Firewall
@@ -146,20 +146,9 @@ cd Remote-admin-tool
 ### Step 3: Install Dependencies
 
 **Ubuntu/Debian:**
+**Ubuntu/Debian/Fedora/Arch:**
 ```bash
-pip3 install pillow mss
-# OR
-sudo apt install python3-pil python3-mss
-```
-
-**Fedora:**
-```bash
-pip3 install pillow mss
-```
-
-**Arch:**
-```bash
-pip3 install pillow mss
+pip3 install -r requirements.txt
 ```
 
 ### Step 4: Configure Firewall
@@ -231,12 +220,23 @@ Then click "🚀 Start Server"
 
 ### Step 8: Run the Client
 
-On client machine:
+On client machine, you can run the python script directly:
 ```bash
 python3 client.py
 ```
-
 You should see: `✓ Connected to server`
+
+### Step 9: Build Standalone Executable (Optional)
+
+If you don't want to install Python on the victim machine, you can compile it into a standalone Linux binary:
+```bash
+# Install PyInstaller
+pip3 install pyinstaller
+
+# Build the client
+python3 build_client.py
+```
+The compiled Linux binary will be saved in the `dist/` folder.
 
 ### Step 9: Execute Commands
 
@@ -591,13 +591,19 @@ kill -9 <process_id>
 **Solution 1: Install Dependencies**
 ```bash
 # Windows
-pip install pillow mss
+pip install -r requirements.txt
 
 # Linux
-pip3 install pillow mss
-# OR
-sudo apt install python3-pil python3-mss
+pip3 install -r requirements.txt
 ```
+
+### Problem: .exe File Not Creating
+
+**Solution: Ensure PyInstaller is installed**
+```bash
+pip install pyinstaller
+```
+Then run the build script again, and check the `dist` folder for the `.exe`.
 
 **Solution 2: Check Display Access**
 - Linux: Ensure client has X11 display access

