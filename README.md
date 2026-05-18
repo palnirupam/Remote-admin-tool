@@ -482,13 +482,18 @@ This tool is perfect for understanding:
 
 ```
 📦 Remote-admin-tool
- ┣ 📜 server.py          # CLI server with advanced logging
- ┣ 📜 server_gui.py      # Professional GUI server
- ┣ 📜 client.py          # Smart client with auto-reconnect
- ┣ 📜 requirements.txt   # Python dependencies
- ┣ 📜 .gitignore         # Git ignore rules
- ┣ 📜 README.md          # This file
- ┗ 📖 USAGE_GUIDE.md     # Complete step-by-step guide
+ ┣ 📜 server.py            # CLI server with advanced logging
+ ┣ 📜 server_gui.py        # Professional GUI server (Main Entry)
+ ┣ 📜 gui_globals.py       # Global states & thread-safe logging
+ ┣ 📜 gui_network.py       # Multi-client TCP listener & socket manager
+ ┣ 📜 gui_commands.py      # Real-time command execution (Zero-Delay)
+ ┣ 📜 gui_features.py      # Webcam, screenshot, & native popup logic
+ ┣ 📜 client.py            # Smart client with auto-reconnect
+ ┣ 📜 advanced_build.py    # Auto-tunneling & .exe/binary compiler
+ ┣ 📜 requirements.txt     # Python dependencies (incl. PyInstaller)
+ ┣ 📜 .gitignore           # Git ignore rules (builds, cache, logs)
+ ┣ 📜 README.md            # This file
+ ┗ 📖 USAGE_GUIDE.md       # Complete step-by-step guide
 ```
 
 > 📖 **Need help?** Check [USAGE_GUIDE.md](USAGE_GUIDE.md) for detailed instructions!
