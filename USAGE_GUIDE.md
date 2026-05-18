@@ -228,15 +228,12 @@ You should see: `✓ Connected to server`
 
 ### Step 9: Build Standalone Executable (Optional)
 
-If you don't want to install Python on the victim machine, you can compile it into a standalone Linux binary:
+If you don't want to install Python on the victim machine, you can compile it into a standalone executable (Windows `.exe` or Linux binary) using the auto-builder:
 ```bash
-# Install PyInstaller
-pip3 install pyinstaller
-
 # Build the client
-python3 build_client.py
+python3 advanced_build.py
 ```
-The compiled Linux binary will be saved in the `dist/` folder.
+The compiled binary will be saved in the `dist/` folder.
 
 ### Step 9: Execute Commands
 
