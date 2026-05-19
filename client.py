@@ -528,38 +528,32 @@ def main_loop():
                                     root = tk.Tk()
                                     root.title(title)
 
-                                    # Borderless + fullscreen + always on top
+                                    # Borderless + topmost + start invisible (fade-in)
                                     root.overrideredirect(True)
-                                    root.attributes('-fullscreen', True)
                                     root.attributes('-topmost', True)
                                     root.attributes('-alpha', 0.0)
 
-                                    # Block all close attempts
-                                    root.protocol("WM_DELETE_WINDOW", lambda: None)
-                                    root.bind("<Alt-F4>", lambda e: "break")
-                                    root.bind("<Escape>", lambda e: "break")
-                                    root.bind("<Control>", lambda e: "break")
-                                    root.bind("<Alt>", lambda e: "break")
-
-                                    screen_width = root.winfo_screenwidth()
-                                    screen_height = root.winfo_screenheight()
+                                    sw = root.winfo_screenwidth()
+                                    sh = root.winfo_screenheight()
+                                    root.geometry(f"{sw}x{sh}+0+0")
 
                                     root.configure(bg="#FF003C")
 
-                                    # Outer glow frame
+                                    # Block close attempts
+                                    root.protocol("WM_DELETE_WINDOW", lambda: None)
+                                    root.bind("<Alt-F4>", lambda e: "break")
+                                    root.bind("<Escape>", lambda e: "break")
+
                                     outer_glow = tk.Frame(root, bg="#FF003C")
                                     outer_glow.pack(fill="both", expand=True, padx=6, pady=6)
 
-                                    # Inner container
                                     inner = tk.Frame(outer_glow, bg="#0A0A0A")
                                     inner.pack(fill="both", expand=True, padx=2, pady=2)
 
-                                    # Top warning bar
                                     warn_bar = tk.Frame(inner, bg="#FF003C", height=8)
                                     warn_bar.pack(fill="x")
                                     warn_bar.pack_propagate(False)
 
-                                    # Blinking Warning Header
                                     alert_label = tk.Label(inner, text="⚠️ SYSTEM OVERRIDE ⚠️",
                                                            font=("Consolas", 36, "bold"), bg="#0A0A0A", fg="#FF003C")
                                     alert_label.pack(pady=(50, 10))
@@ -573,17 +567,14 @@ def main_loop():
                                         except: pass
                                     blink_alert()
 
-                                    # Title
                                     tk.Label(inner, text=title, font=("Consolas", 42, "bold"),
-                                             bg="#0A0A0A", fg="white", wraplength=screen_width-100).pack(pady=(20, 15))
+                                             bg="#0A0A0A", fg="white", wraplength=sw-100).pack(pady=(20, 15))
 
-                                    # Message with typewriter-style green text
                                     msg_label = tk.Label(inner, text=message, font=("Consolas", 24),
-                                                         bg="#0A0A0A", fg="#00FF41", wraplength=screen_width-100,
+                                                         bg="#0A0A0A", fg="#00FF41", wraplength=sw-100,
                                                          justify="center")
                                     msg_label.pack(pady=15, expand=True)
 
-                                    # Red warning bottom text
                                     tk.Label(inner, text="DO NOT IGNORE — CRITICAL SYSTEM ALERT",
                                              font=("Consolas", 14, "bold"), bg="#0A0A0A", fg="#FF003C").pack(pady=(10, 5))
 
@@ -638,24 +629,24 @@ def main_loop():
                                     btn.bind("<Enter>", on_enter)
                                     btn.bind("<Leave>", on_leave)
 
-                                    # Fade-in
+                                    # Fade-in (proven working approach)
                                     def fade_in(alpha=0.0):
                                         try:
-                                            alpha += 0.04
+                                            alpha += 0.05
                                             if alpha <= 1.0:
                                                 root.attributes('-alpha', alpha)
-                                                root.after(25, fade_in)
+                                                root.after(30, fade_in, alpha)
                                         except: pass
+                                    root.after(100, fade_in)
 
+                                    # Keep window on top
                                     def force_focus():
                                         try:
                                             root.lift()
                                             root.attributes('-topmost', True)
                                             root.focus_force()
-                                            root.after(400, force_focus)
+                                            root.after(500, force_focus)
                                         except: pass
-
-                                    root.after(100, fade_in)
                                     force_focus()
 
                                     root.mainloop()
