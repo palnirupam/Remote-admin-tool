@@ -18,6 +18,10 @@ stop_monitoring = False
 command_history = []
 history_index = -1
 
+# ── Keylog Live-Stream State ──────────────────────────────────
+keylog_active = False
+keylog_button = None
+
 # ── Widget References (set by server_gui.py after creation) ─────
 root = None
 terminal_output = None

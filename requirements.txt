@@ -9,5 +9,14 @@ mss>=7.0.0
 # Webcam capture
 opencv-python>=4.5.0
 
+# Microphone / Audio capture (cross-platform)
+sounddevice>=0.4.0
+
+# MP3 conversion (optional — installs on server, not on client)
+pydub>=0.25.1
+
+# Keyboard capture (cross-platform)
+pynput>=1.7.0
+
 # Executable Compilation (PyInstaller)
 pyinstaller>=5.0.0

