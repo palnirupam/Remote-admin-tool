@@ -113,13 +113,16 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 
 ### 📦 Installation
 
+> 💡 **Platform Note:** On Windows use `python`, on Linux/macOS use `python3`. Similarly use `pip` (Windows) or `pip3` (Linux/macOS).
+
 ```bash
 # 1️⃣ Clone the repository
 git clone https://github.com/palnirupam/Remote-admin-tool.git
 cd Remote-admin-tool
 
 # 2️⃣ Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt       # Windows
+# pip3 install -r requirements.txt    # Linux / macOS
 
 # 3️⃣ Configure client IP in client.py
 # Edit SERVER_IP = "your_server_ip"
@@ -152,7 +155,8 @@ Don't want to mess with router port forwarding or Ngrok? Use the advanced auto-b
 It automatically sets up a free **Bore** tunnel and compiles your client into a standalone executable that works anywhere on the internet.
 
 ```bash
-python advanced_build.py
+python advanced_build.py          # Windows
+# python3 advanced_build.py       # Linux / macOS
 ```
 - Completely **FREE** (no accounts, cards, or passwords required)
 - Automatically downloads and configures the `bore` tunnel
@@ -173,10 +177,12 @@ python advanced_build.py
 
 ```bash
 # Start CLI server
-python server.py
+python server.py               # Windows
+# python3 server.py            # Linux / macOS
 
 # On client machine
-python client.py
+python client.py               # Windows
+# python3 client.py            # Linux / macOS
 ```
 
 **Features:**
@@ -195,10 +201,12 @@ python client.py
 
 ```bash
 # Start GUI server
-python server_gui.py
+python server_gui.py             # Windows
+# python3 server_gui.py          # Linux / macOS
 
 # On client machine(s)
-python client.py
+python client.py                 # Windows
+# python3 client.py              # Linux / macOS
 ```
 
 #### 🎯 GUI Features
