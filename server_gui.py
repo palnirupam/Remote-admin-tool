@@ -208,6 +208,7 @@ for text, cmd, color in adv_btns:
     btn.pack(fill="x", padx=10, pady=4)
     advanced_buttons.append(btn)
 g.keylog_button = advanced_buttons[3]
+g.mic_button = advanced_buttons[2]
 tk.Label(adv_frame, text="", bg="#E8EAF6").pack(pady=5)
 
 # ── System Control ────────────────────────────────────────────────────────────

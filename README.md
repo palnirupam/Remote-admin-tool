@@ -81,7 +81,7 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 | 🎯 | **OS-Specific Commands** - Advanced smart buttons that adapt to Windows/Linux/Mac | ✅ |
 | 🛡️ | **Anti-Scanner Protection** - Real-time socket probing and ghost connection rejection | ✅ |
 | ⌨️ | **Zero-Delay Terminal** - Fully interactive terminal with zero output latency | ✅ |
-| 🎤 | **Microphone Capture** - Record audio from client with automatic MP3 conversion | ✅ |
+| 🎤 | **Live Microphone Streaming** - Toggle start/stop recording with auto MP3 save dialog | ✅ |
 | ⌨️ | **Live Keylog Streaming** - Real-time keystroke capture with toggle start/stop | ✅ |
 
 </div>
@@ -97,7 +97,7 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 *   **Advanced Anti-Scanner Protection:** Ghost TCP connections, port scanners, and older client executables are instantly purged.
 *   **Smarter Quick Commands:** Action buttons are dynamically generated based on the client's OS (Windows vs Linux vs Mac) and focus on advanced forensics (Firewalls, Scheduled Tasks, Memory Hogs).
 *   **Clean Process Kills:** Clicking "Disconnect" instantly and safely unloads the `.exe` from the client's RAM using hard `os._exit(0)`.
-*   **🎤 Microphone Capture:** Record audio from the client's microphone with duration selection. Automatically converts to MP3 via pydub on save.
+*   **🎤 Live Microphone Streaming (v2.1):** Microphone is now a **start/stop toggle** just like Keylog. Click "🎤 Microphone" to start recording, click "⏹ Stop Mic" to end. Receives the full WAV and auto-prompts save dialog with MP3 conversion.
 *   **⌨️ Live Keylog Streaming:** Keystrokes now stream in real-time to the server terminal with a toggle start/stop button. No more waiting for a timer — click "Stop Keylog" whenever you're done.
 *   **Bug Fixes:** Increased `max_chunks` for microphone (200→2000 prevents truncation), dynamic timeout based on recording duration, `sd.wait()` hang protection via daemon thread, removed duplicate POPUP handler, replaced `os._exit(0)` with hybrid `Timer(3s) + sys.exit(0)` for clean shutdown.
 
@@ -325,18 +325,20 @@ SCREENSHOT
 - 🔍 View at 100% original size
 - 📊 Memory-safe for large captures
 
-### 🎤 Microphone Capture
+### 🎤 Live Microphone Streaming
 
 ```bash
 # In terminal or click 🎤 button
-MICROPHONE:10    # Record for 10 seconds (1-60)
+MIC_START        # Start recording
+MIC_STOP         # Stop recording and save
 ```
 
 **Features:**
-- 🎚️ Configurable duration (1-60 seconds)
-- 📦 Automatic MP3 conversion via pydub on save
-- 🔊 High-quality 44100Hz stereo WAV recording
-- 💾 Fallback raw WAV save if pydub is unavailable
+- 🔘 Toggle button — click once to start, again to stop & save
+- 🔊 High-quality 44100Hz stereo WAV recording (pydub MP3 conversion on save)
+- 💾 Auto-prompt save dialog when stream ends (Yes/No + file path selection)
+- 🧵 Background InputStream callback — GUI stays fully responsive during capture
+- 🔁 Legacy command `MICROPHONE:10` also still supported for fixed-duration captures
 
 ### ⌨️ Live Keylog Streaming
 

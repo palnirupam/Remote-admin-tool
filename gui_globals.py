@@ -22,6 +22,10 @@ history_index = -1
 keylog_active = False
 keylog_button = None
 
+# ── Microphone Live-Stream State ──────────────────────────────
+mic_active = False
+mic_button = None
+
 # ── Widget References (set by server_gui.py after creation) ─────
 root = None
 terminal_output = None

