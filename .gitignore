@@ -37,7 +37,6 @@ bore.exe
 
 # Build helpers (not source files)
 upx.exe
-update_icon.ico
 
 # User-generated data (screenshots, downloads)
 screenshots/
