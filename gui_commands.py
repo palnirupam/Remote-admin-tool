@@ -312,6 +312,9 @@ def _handle_special_response(output):
             else:
                 g.root.after(0, lambda m=msg: messagebox.showerror("UAC Bypass Failed", m))
 
+        elif resp_type == "WIFI_SCAN":
+            g.root.after(0, lambda r=response: feat.update_geo_wifi_result(r))
+
     except json.JSONDecodeError:
         if output.strip():
             g.root.after(0, lambda t=output: g.terminal_output.insert(tk.END, t + "\n", "output"))
