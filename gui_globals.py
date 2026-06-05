@@ -50,6 +50,7 @@ task_manager_window = None
 file_manager_window = None
 file_editor_window = None
 screen_monitor_window = None
+geo_window = None
 
 
 # ── Global Logging Function ──

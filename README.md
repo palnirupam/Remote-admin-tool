@@ -2,7 +2,7 @@
 
 # 🖥️ Remote Administration Tool
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=32&duration=2800&pause=2000&color=00ADD8&center=true&vCenter=true&width=940&lines=Professional+Remote+Administration;Multi-Client+Management;Cross-Platform+Support;Built+with+Python" alt="Typing SVG" />
+<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=32&duration=2800&pause=2000&color=00ADD8&center=true&vCenter=true&width=940&lines=Professional+Remote+Administration;Multi-Client+Management;Privilege+Escalation+%26+UAC+Bypass;Built+with+Python" alt="Typing SVG" />
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.x-blue.svg?style=for-the-badge&logo=python&logoColor=white" alt="Python Version"/>
@@ -14,8 +14,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Multi--Client-✓-success?style=flat-square" alt="Multi-Client"/>
   <img src="https://img.shields.io/badge/GUI%20Interface-✓-success?style=flat-square" alt="GUI"/>
-  <img src="https://img.shields.io/badge/Screenshot-4K-success?style=flat-square" alt="Screenshot"/>
-  <img src="https://img.shields.io/badge/File%20Transfer-✓-success?style=flat-square" alt="File Transfer"/>
+  <img src="https://img.shields.io/badge/UAC%20Bypass-✓-red?style=flat-square" alt="UAC Bypass"/>
+  <img src="https://img.shields.io/badge/GeoLocation-✓-success?style=flat-square" alt="GeoLocation"/>
   <img src="https://img.shields.io/badge/Real--time-✓-success?style=flat-square" alt="Real-time"/>
 </p>
 
@@ -43,11 +43,11 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 <tr>
 <td width="50%">
 
-#### 🎯 **For Developers**
-- Clean, readable Python code
-- Excellent learning resource
-- Easy to customize
-- Well-documented
+#### 🎯 **For Cybersecurity Students**
+- UAC bypass techniques (fodhelper)
+- Privilege escalation detection
+- GeoLocation & IP intelligence
+- Real-world pentest workflows
 
 </td>
 <td width="50%">
@@ -72,20 +72,24 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 |:-------:|:------------|:------:|
 | 🔌 | **TCP Communication** - Reliable client-server architecture | ✅ |
 | 👥 | **Multi-Client Support** - Manage multiple machines simultaneously | ✅ |
-| 💻 | **Modular Architecture** - Thread-safe, multi-file codebase for UI, Network & Commands | ✅ |
+| 💻 | **Modular Architecture** - Thread-safe, multi-file codebase | ✅ |
 | 📸 | **4K Screenshots** - High-quality screen capture with dynamic compression | ✅ |
 | 📷 | **Webcam Capture** - Real-time webcam snapshot directly to GUI | ✅ |
-| 📁 | **File Transfer** - Upload/download with progress tracking | ✅ |
-| 💬 | **Multi-Style Popups** - INFO / WARNING / ERROR / CYBER / OVERRIDE — always shown topmost | ✅ |
-| 🖥️ | **Live Screen Monitor** - Real-time remote desktop view with mouse & keyboard control | ✅ |
-| 🎯 | **OS-Specific Commands** - Advanced smart buttons that adapt to Windows/Linux/Mac | ✅ |
-| 🛡️ | **Anti-Scanner Protection** - Real-time socket probing and ghost connection rejection | ✅ |
-| ⌨️ | **Zero-Delay Terminal** - Fully interactive terminal with zero output latency | ✅ |
-| 🎤 | **Live Microphone Streaming** - Toggle start/stop recording with auto MP3 save dialog | ✅ |
-| ⌨️ | **Live Keylog Streaming** - Real-time keystroke capture with toggle start/stop | ✅ |
-| 📋 | **Visual File Manager** - Browse, read, edit, delete remote files with GUI | ✅ |
-| 🎯 | **Remote Task Manager** - View and kill processes on the client machine | ✅ |
-| 📊 | **Live Performance Dashboard** - Real-time CPU, RAM, Disk usage monitor | ✅ |
+| 📁 | **Visual File Manager** - Browse, read, edit, delete remote files with GUI | ✅ |
+| 📥📤 | **File Transfer** - Upload/download with progress tracking (50MB) | ✅ |
+| 💬 | **Multi-Style Popups** - INFO / WARNING / ERROR / CYBER / OVERRIDE | ✅ |
+| 🖥️ | **Live Screen Monitor** - Real-time remote desktop with full mouse & keyboard control | ✅ |
+| 🖱️ | **Full Mouse Control** - Click, scroll, drag-drop, move on remote screen | ✅ |
+| ⌨️ | **Hotkey Support** - Ctrl+C/V/Z/A/X/S/W/T/R forwarded to remote | ✅ |
+| 🎯 | **OS-Specific Commands** - Smart buttons that adapt to Windows/Linux/Mac | ✅ |
+| 🛡️ | **Anti-Scanner Protection** - Ghost connection rejection | ✅ |
+| 🎤 | **Live Microphone Streaming** - Toggle start/stop with auto MP3 save | ✅ |
+| ⌨️ | **Live Keylog Streaming** - Real-time keystroke capture with toggle | ✅ |
+| 🎯 | **Remote Task Manager** - View and kill processes on client | ✅ |
+| 📊 | **Live Performance Dashboard** - Real-time CPU, RAM, Disk monitor | ✅ |
+| 🗺️ | **GeoLocation Tracker** - IP-based location with Google Maps link | ✅ |
+| 👑 | **Privilege Inspector** - Token integrity level + UAC status display | ✅ |
+| 🔥 | **UAC Bypass** - fodhelper.exe method for privilege escalation | ✅ |
 
 </div>
 
@@ -93,37 +97,49 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 
 ## 🆕 What's New?
 
-### v2.2 — Bug Fix Patch *(Latest)*
+### v2.5 — Security & Intelligence Update *(Latest)*
 
-*   **🔔 Popup Topmost Fix:** `INFO`, `WARNING`, and `ERROR` dialogs now always appear **on top of all windows** using a withdrawn topmost Tk parent — previously they could appear hidden behind other apps.
-*   **🖥️ Live Screen Monitor — Stop Button Fixed:** The `⏹ Stop Stream` button now correctly calls `on_close()` which sends `LIVE_SCREEN_STOP` to the client. Previously it called `win.destroy()` directly, skipping the stop command entirely — leaving the client stuck in a streaming loop.
-*   **🔁 Duplicate `_screen_stream_active` Flag Fixed:** `gui_commands.py` had two separate `_screen_stream_active` variables at different scopes. `execute_command()` checked one while `start_screen_stream()` set the other — they were never in sync. Now there is only one shared variable.
-*   **⚙️ Subprocess Popup Launch Fixed:** The popup subprocess now correctly uses `getattr(sys, 'frozen', False)` to detect whether the client is a compiled `.exe` or a raw Python script, and builds `cmd_args` accordingly — fixing popups for both modes.
-*   **🔐 Persistence Fix:** `_add_persistence()` now correctly writes the startup registry entry for both frozen `.exe` and raw Python script modes using `sys.executable` + `sys.argv[0]`.
+* **🗺️ GeoLocation Tracker:** One-click IP geolocation using `ip-api.com`. Shows Country, City, ISP, Timezone, Proxy/VPN detection, and coordinates with **"Open in Google Maps"** button. Auto-detects public IP for localhost/LAN clients.
+* **👑 Privilege Inspector:** Displays the client's exact Windows token integrity level (`Low / Medium / High / System`) using `whoami /groups`. Color-coded badge (🔴🟡🟢🔵) shows privilege at a glance.
+* **🔥 UAC Bypass (fodhelper):** When client is in admin group but blocked by UAC (Medium integrity), a one-click **fodhelper.exe bypass** relaunches the client as **HIGH integrity** — no UAC prompt shown.
+* **🐛 File Manager Path Bug Fixed:** Remote file browser now correctly compares paths using string normalization instead of server-side `os.path.abspath()` — previously always returned empty listing.
+* **🐛 PRIV_INFO Routing Fixed:** JSON responses from `PRIV_INFO` and `UAC_BYPASS` are now correctly routed through the special command handler instead of being dumped raw into the terminal.
 
 ---
 
-### v2.1 — Live Streaming Update
+### v2.4 — Live Screen Monitor Controls
 
-*   **🎤 Live Microphone Streaming:** Microphone is now a **start/stop toggle** just like Keylog. Click "🎤 Microphone" to start recording, click "⏹ Stop Mic" to end. Receives the full WAV and auto-prompts save dialog with MP3 conversion.
-*   **⌨️ Live Keylog Streaming:** Keystrokes now stream in real-time to the server terminal with a toggle start/stop button. No more waiting for a timer — click "Stop Keylog" whenever you're done.
-*   **Bug Fixes:** Increased `max_chunks` for microphone (200→2000 prevents truncation), dynamic timeout based on recording duration, `sd.wait()` hang protection via daemon thread, removed duplicate POPUP handler, replaced `os._exit(0)` with hybrid `Timer(3s) + sys.exit(0)` for clean shutdown.
+* **🖱️ Mouse Scroll:** Scroll wheel forwarded to remote screen (up/down).
+* **🖱️ Drag & Drop:** Click-hold-drag now works on remote screen for file/UI interactions.
+* **⌨️ Hotkeys:** `Ctrl+C`, `Ctrl+V`, `Ctrl+Z`, `Ctrl+A`, `Ctrl+X`, `Ctrl+S`, `Ctrl+W`, `Ctrl+T`, `Ctrl+R` all forwarded to client.
+
+---
+
+### v2.3 — Bug Fix Patch
+
+* **🔔 Popup Topmost Fix:** Dialogs now always appear on top of all windows.
+* **🖥️ Screen Monitor Stop Button Fixed:** `⏹ Stop Stream` now correctly sends `LIVE_SCREEN_STOP` to client.
+* **🔁 Duplicate Flag Fixed:** Single shared `_screen_stream_active` variable across all modules.
+* **⚙️ Subprocess Popup Fix:** Correctly handles both `.exe` and raw Python script launch modes.
+* **🔐 Persistence Fix:** Registry entry now works for both frozen `.exe` and raw `.py` modes.
+
+---
+
+### v2.2 — Live Streaming Update
+
+* **🎤 Live Microphone Streaming:** Toggle start/stop. Receives WAV and auto-prompts MP3 save.
+* **⌨️ Live Keylog Streaming:** Real-time keystroke stream with toggle start/stop button.
 
 ---
 
 ### v2.0 — Major Release
 
-*   **Completely Modularized Backend:** `server_gui.py` is now backed by `gui_globals.py`, `gui_network.py`, `gui_features.py`, and `gui_commands.py` eliminating circular dependencies and UI freezes.
-*   **Webcam Support:** Capture images using the remote client's webcam (`opencv-python`).
-*   **Multi-Style Popup Alerts:** 5 popup types — INFO, WARNING, ERROR, CYBER (cyberpunk HUD), OVERRIDE (fullscreen siren). Windows popups trigger system sounds & TTS speech synthesis.
-*   **Zero-Delay Interactive Terminal:** Implemented `\n}` payload EOF markers so command output is rendered instantly with 0ms delay.
-*   **Advanced Anti-Scanner Protection:** Ghost TCP connections, port scanners, and older client executables are instantly purged.
-*   **Smarter Quick Commands:** Action buttons are dynamically generated based on the client's OS (Windows vs Linux vs Mac).
-*   **Clean Process Kills:** Clicking "Disconnect" instantly and safely unloads the `.exe` from the client's RAM.
+* **Completely Modularized Backend:** `gui_globals.py`, `gui_network.py`, `gui_features.py`, `gui_commands.py`.
+* **Webcam Support**, **Multi-Style Popups**, **Zero-Delay Terminal**, **Anti-Scanner Protection**.
 
 ---
 
-## � Quick Start
+## 🚀 Quick Start
 
 <div align="center">
 <img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="100">
@@ -131,7 +147,7 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 
 ### 📦 Installation
 
-> 💡 **Platform Note:** On Windows use `python`, on Linux/macOS use `python3`. Similarly use `pip` (Windows) or `pip3` (Linux/macOS).
+> 💡 **Platform Note:** On Windows use `python`, on Linux/macOS use `python3`.
 
 ```bash
 # 1️⃣ Clone the repository
@@ -166,56 +182,25 @@ pip install -r requirements.txt       # Windows
 
 ### 🛠️ Building the Client Executable (.exe / Linux Binary)
 
-You can compile the `client.py` into a standalone, hidden executable that victims/clients can run without needing Python installed.
-*Note: If you run the build script on Windows, it generates a `.exe`. If you run it on Linux, it generates a native Linux executable.*
-
-Don't want to mess with router port forwarding or Ngrok? Use the advanced auto-builder!
-It automatically sets up a free **Bore** tunnel and compiles your client into a standalone executable that works anywhere on the internet.
+Compile `client.py` into a standalone hidden executable — no Python needed on the target machine.
 
 ```bash
 python advanced_build.py          # Windows
 # python3 advanced_build.py       # Linux / macOS
 ```
+
 - Completely **FREE** (no accounts, cards, or passwords required)
 - Automatically downloads and configures the `bore` tunnel
-- Safely injects the public IP and Port to compile `ClientRAT_Global.exe`
+- Injects public IP and Port → compiles `ClientRAT_Global.exe`
 - Your original `client.py` stays safely configured for localhost!
 
-> **🎯 IMPORTANT:** Once the build process finishes successfully, your final executable file will be located inside the **`dist`** folder within your project directory!
+> **🎯 IMPORTANT:** Final executable will be in the **`dist`** folder!
 
 ---
 
 ## 💡 Usage
 
-### 🖥️ Option 1: CLI Server
-
-<div align="center">
-<img src="https://img.shields.io/badge/Terminal-000000?style=for-the-badge&logo=windows-terminal&logoColor=white" alt="Terminal"/>
-</div>
-
-```bash
-# Start CLI server
-python server.py               # Windows
-# python3 server.py            # Linux / macOS
-
-# On client machine
-python client.py               # Windows
-# python3 client.py            # Linux / macOS
-```
-
-**Features:**
-- ⚡ Lightweight and fast
-- 📝 Detailed logging to `server.log`
-- 🔄 Auto-reconnect support
-- 💾 Progress tracking for file transfers
-
----
-
-### 🎨 Option 2: GUI Server (Recommended)
-
-<div align="center">
-<img src="https://img.shields.io/badge/GUI-Professional-blue?style=for-the-badge&logo=windows&logoColor=white" alt="GUI"/>
-</div>
+### 🎨 GUI Server (Recommended)
 
 ```bash
 # Start GUI server
@@ -227,215 +212,109 @@ python client.py                 # Windows
 # python3 client.py              # Linux / macOS
 ```
 
-#### 🎯 GUI Features
+---
 
-<table>
-<tr>
-<td width="33%" align="center">
+## 🔥 Advanced Features
 
-### 👥 Multi-Client
-<img src="https://img.shields.io/badge/Clients-10%20Max-blue?style=flat-square" alt="Clients"/>
+### 🗺️ GeoLocation Tracker
 
-Manage up to 10 clients simultaneously with easy switching
+Click **"🗺️ GeoLocation"** after selecting a client:
 
-</td>
-<td width="33%" align="center">
+- 🌍 Country, Region, City, ZIP
+- 📍 GPS Coordinates (clickable → Google Maps)
+- 📡 ISP & Organization name
+- 🔒 Proxy / VPN / Datacenter detection
+- 📶 Mobile data detection
+- 🕐 Timezone
 
-### 📸 Screenshots
-<img src="https://img.shields.io/badge/Quality-4K-green?style=flat-square" alt="4K"/>
-
-Capture high-quality screenshots up to 4K resolution
-
-</td>
-<td width="33%" align="center">
-
-### 📁 File Transfer
-<img src="https://img.shields.io/badge/Size-50MB-orange?style=flat-square" alt="Size"/>
-
-Upload/download files with progress tracking
-
-</td>
-</tr>
-</table>
-
-#### ⌨️ Keyboard Shortcuts
-
-<div align="center">
-
-| Shortcut | Action | Shortcut | Action |
-|:--------:|:-------|:--------:|:-------|
-| `↑` `↓` | Command history | `Tab` | Auto-complete |
-| `Ctrl+C` | Copy/Clear | `Ctrl+V` | Paste |
-| `Ctrl+L` | Clear terminal | `Ctrl+A` | Select all |
-| `Ctrl+K` | Kill line | `Ctrl+U` | Clear line |
-
-</div>
+> Auto-detects public IP for LAN/localhost clients via `api.ipify.org`.
 
 ---
 
-## 🖥️ Platform Support
+### 👑 Privilege Inspector + UAC Bypass
 
-<div align="center">
-<img src="https://user-images.githubusercontent.com/74038190/212257454-16e3712e-945a-4ca2-b238-408ad0bf87e6.gif" width="100">
-</div>
+Click **"👑 Privilege"** after selecting a client:
 
-### 🪟 Windows
-
-<details>
-<summary>🔧 Click for Windows setup</summary>
-
-**Firewall Configuration:**
-```powershell
-netsh advfirewall firewall add rule name="Remote Admin Tool" dir=in action=allow protocol=TCP localport=5000
+```
+┌──────────────────────────────────────────────┐
+│ 👑  PRIVILEGE INSPECTOR       🟡 MEDIUM       │
+├──────────────────────────────────────────────┤
+│ 👤 Username      victim                      │
+│ 🛡️ Admin Group   Yes ✅                       │
+│ 🔒 UAC Enabled   Yes (ON)                    │
+│ 🔑 Integrity     🟡 Medium                   │
+│ ⚡ Elevated       No — MEDIUM token ⚠️        │
+├──────────────────────────────────────────────┤
+│  [🔥 Execute UAC Bypass (fodhelper)]          │
+└──────────────────────────────────────────────┘
 ```
 
-**Common Commands:**
-```bash
-ipconfig          # Network information
-whoami            # Current user
-dir               # List files
-systeminfo        # System details
-tasklist          # Running processes
-netstat -an       # Network connections
-```
+**UAC Bypass flow:**
+1. Writes payload to `HKCU\Software\Classes\ms-settings\shell\open\command`
+2. Triggers `fodhelper.exe` (Windows auto-elevated binary)
+3. Client relaunches as **HIGH integrity** — no UAC prompt
+4. New elevated connection appears in client list
 
-</details>
-
-### 🐧 Linux
-
-<details>
-<summary>🔧 Click for Linux setup</summary>
-
-**Firewall Configuration:**
-```bash
-# Using UFW
-sudo ufw allow 5000/tcp
-
-# Using iptables
-sudo iptables -A INPUT -p tcp --dport 5000 -j ACCEPT
-```
-
-**Common Commands:**
-```bash
-ifconfig          # Network information
-whoami            # Current user
-ls -la            # List files
-uname -a          # System details
-ps aux            # Running processes
-netstat -tuln     # Network connections
-```
-
-**Auto-Install Dependencies:**
-Client automatically installs required packages on first run!
-
-</details>
+**Integrity levels:**
+| Badge | Level | Meaning |
+|-------|-------|---------|
+| 🔴 | Low | Sandbox / restricted |
+| 🟡 | Medium | Standard user (UAC blocking) |
+| 🟢 | High | Admin — full access |
+| 🔵 | System | NT AUTHORITY\SYSTEM |
 
 ---
 
-## 📸 Advanced Features
+### 🖥️ Live Screen Monitor Controls
 
-<div align="center">
-<img src="https://user-images.githubusercontent.com/74038190/212257465-7ce8d493-cac5-494e-982a-5a9deb852c4b.gif" width="100">
-</div>
+| Action | How |
+|--------|-----|
+| Left/Right/Middle click | Mouse button on screen |
+| Scroll up/down | Mouse wheel |
+| Drag & Drop | Click-hold-move |
+| Hotkeys | `Ctrl+C/V/Z/A/X/S/W/T/R` |
+
+---
+
+### 📁 Visual File Manager
+
+- Browse entire remote filesystem with GUI tree
+- Double-click folders to navigate
+- Right-click files: **Download / Edit / Delete**
+- Built-in text editor with syntax support
+- Supports both Windows and Linux paths
+
+---
 
 ### 🎯 Screenshot Capture
 
 ```bash
-# In terminal or click 📸 button
-SCREENSHOT
+SCREENSHOT     # Terminal command or click 📸 button
 ```
 
-**Features:**
 - 🎨 Adaptive quality (4K/2K/HD)
 - 💾 Auto-save to `screenshots/` folder
 - 🔍 View at 100% original size
-- 📊 Memory-safe for large captures
 
-### 🎤 Live Microphone Streaming
+---
 
-```bash
-# In terminal or click 🎤 button
-MIC_START        # Start recording
-MIC_STOP         # Stop recording and save
-```
-
-**Features:**
-- 🔘 Toggle button — click once to start, again to stop & save
-- 🔊 High-quality 44100Hz stereo WAV recording (pydub MP3 conversion on save)
-- 💾 Auto-prompt save dialog when stream ends (Yes/No + file path selection)
-- 🧵 Background InputStream callback — GUI stays fully responsive during capture
-- 🔁 Legacy command `MICROPHONE:10` also still supported for fixed-duration captures
-
-### ⌨️ Live Keylog Streaming
+### 🎤 Microphone & ⌨️ Keylogger
 
 ```bash
-# In terminal or click ⌨️ button
-KEYLOG_START     # Start live keystream
-KEYLOG_STOP      # Stop keystream
+MIC_START      # Start recording
+MIC_STOP       # Stop & save as WAV/MP3
+
+KEYLOG_START   # Start live keystroke stream
+KEYLOG_STOP    # Stop keylog
 ```
-
-**Features:**
-- ⚡ Real-time keystroke display in server terminal (GUI: green `keylog` tag)
-- 🔘 Toggle button — click once to start, again to stop
-- ⌨️ CLI: press `Ctrl+C` to end the stream
-- 💾 Auto-saved to `keylogs/` folder with timestamp + key count
-- 🧵 Background listener — GUI stays fully responsive during capture
-
-### 📁 File Transfer
-
-**Download from client:**
-```bash
-# Windows
-DOWNLOAD:C:\path\to\file.txt
-
-# Linux
-DOWNLOAD:/home/user/file.txt
-```
-
-**Upload to client:**
-- Use GUI button for easy file selection
-- Supports files up to 50MB
-- Progress tracking included
-
-### ⚙️ System Control
-
-<table>
-<tr>
-<td width="50%">
-
-**Windows:**
-```bash
-shutdown /r /t 0    # Restart
-shutdown /s /t 0    # Shutdown
-rundll32.exe user32.dll,LockWorkStation  # Lock
-```
-
-</td>
-<td width="50%">
-
-**Linux:**
-```bash
-reboot              # Restart
-shutdown -h now     # Shutdown
-gnome-screensaver-command -l  # Lock
-```
-
-</td>
-</tr>
-</table>
 
 ---
 
 ## 🔧 Troubleshooting
 
-<div align="center">
-<img src="https://user-images.githubusercontent.com/74038190/212257468-1e9a91f1-b626-4baa-b15d-5c385dfa7ed2.gif" width="100">
-</div>
-
 <details>
 <summary>❌ Connection Failed</summary>
 
-**Solutions:**
 - ✅ Verify server is running
 - ✅ Check `SERVER_IP` in client.py
 - ✅ Ensure firewall allows port 5000
@@ -461,12 +340,21 @@ kill -9 <process_id>
 </details>
 
 <details>
-<summary>❌ Screenshot Not Working</summary>
+<summary>❌ GeoLocation Shows Wrong Location</summary>
 
-**Solutions:**
-- ✅ Install: `pip install pillow mss`
-- ✅ Linux: `sudo apt install python3-pil python3-mss`
-- ✅ Check display access permissions
+- If client is behind **VPN/Proxy**, location will reflect VPN server, not real location
+- LAN clients auto-lookup public IP via `api.ipify.org`
+- `127.0.0.1` → automatically resolved to machine's real public IP
+
+</details>
+
+<details>
+<summary>❌ UAC Bypass Not Working</summary>
+
+- ✅ Client must be on **Windows**
+- ✅ User must be a member of the **Administrators group**
+- ✅ **UAC must be enabled** (if UAC is off, bypass not needed anyway)
+- ❌ If `is_admin: false` → user is a standard user, bypass impossible
 
 </details>
 
@@ -476,42 +364,11 @@ kill -9 <process_id>
 
 <div align="center">
 
-### ⚠️ Educational Use Only
+### ⚠️ Educational & Authorized Use Only
 
 <img src="https://img.shields.io/badge/Security-Educational%20Only-red?style=for-the-badge" alt="Security"/>
 
-**This tool is designed for learning and educational purposes.**
-
 </div>
-
-<table>
-<tr>
-<td width="50%">
-
-### 🔓 Current Limitations
-
-- **No Encryption** - All data transmitted in plain text
-- **No Authentication** - Anyone can connect with IP address
-- **No Input Validation** - Commands executed without sanitization
-- **Command Injection Risk** - Shell commands run directly
-- **No Access Control** - No permission system implemented
-
-</td>
-<td width="50%">
-
-### ✅ Recommended for Production
-
-For real-world use, consider these secure alternatives:
-
-- **SSH (Secure Shell)** - Industry standard for remote access
-- **Ansible** - Automated configuration management
-- **PowerShell Remoting** - Windows remote management
-- **TeamViewer / AnyDesk** - GUI-based remote desktop
-- **VNC / RDP** - Secure remote desktop protocols
-
-</td>
-</tr>
-</table>
 
 <div align="center">
 
@@ -520,18 +377,10 @@ For real-world use, consider these secure alternatives:
 **THE AUTHOR IS NOT RESPONSIBLE FOR ANY MISUSE OR DAMAGE CAUSED BY THIS SOFTWARE.**
 
 By using this tool, you agree to:
-- Use it only on systems you own or have explicit permission to access
+- Use it **only on systems you own or have explicit written permission** to access
 - Not use it for any illegal, malicious, or unauthorized purposes
 - Accept full responsibility for your actions
-- Understand that the author bears NO LIABILITY for consequences of use
-
-### 🎓 Learning Objectives
-
-This tool is perfect for understanding:
-- Socket programming concepts
-- Client-server architecture
-- Network security vulnerabilities
-- Why encryption and authentication matter
+- Understand that the author bears **NO LIABILITY** for consequences of use
 
 **Use responsibly and ethically. Always obtain proper authorization!**
 
@@ -543,21 +392,21 @@ This tool is perfect for understanding:
 
 ```
 📦 Remote-admin-tool
- ┣ 📜 server.py            # CLI server with advanced logging
  ┣ 📜 server_gui.py        # Professional GUI server (Main Entry)
- ┣ 📜 gui_globals.py       # Global states, keylog streaming state & thread-safe logging
+ ┣ 📜 server.py            # CLI server with advanced logging
+ ┣ 📜 gui_globals.py       # Shared global state & thread-safe logging
  ┣ 📜 gui_network.py       # Multi-client TCP listener & socket manager
- ┣ 📜 gui_commands.py      # Real-time command execution (Zero-Delay) + keylog stream handler
- ┣ 📜 gui_features.py      # Screenshot, webcam, microphone, keylog toggle, & popup logic
- ┣ 📜 client.py            # Smart client with auto-reconnect
+ ┣ 📜 gui_commands.py      # Command execution, response routing & handlers
+ ┣ 📜 gui_features.py      # Screenshot, webcam, mic, keylog, file manager,
+ ┃                         #   screen monitor, geolocation, privilege UI
+ ┣ 📜 client.py            # Smart client — auto-reconnect, all handlers,
+ ┃                         #   privilege info, UAC bypass, persistence
  ┣ 📜 advanced_build.py    # Auto-tunneling & .exe/binary compiler
- ┣ 📜 requirements.txt     # Python dependencies (incl. PyInstaller)
- ┣ 📜 .gitignore           # Git ignore rules (builds, cache, logs)
+ ┣ 📜 requirements.txt     # Python dependencies
+ ┣ 📜 .gitignore           # Git ignore rules
  ┣ 📜 README.md            # This file
  ┗ 📖 USAGE_GUIDE.md       # Complete step-by-step guide
 ```
-
-> 📖 **Need help?** Check [USAGE_GUIDE.md](USAGE_GUIDE.md) for detailed instructions!
 
 ---
 
@@ -568,30 +417,26 @@ This tool is perfect for understanding:
 <img src="https://img.shields.io/badge/Socket%20Programming-✓-blue?style=flat-square" alt="Socket"/>
 <img src="https://img.shields.io/badge/Multi--Threading-✓-blue?style=flat-square" alt="Threading"/>
 <img src="https://img.shields.io/badge/GUI%20Development-✓-blue?style=flat-square" alt="GUI"/>
+<img src="https://img.shields.io/badge/UAC%20Bypass-✓-red?style=flat-square" alt="UAC"/>
+<img src="https://img.shields.io/badge/Privilege%20Escalation-✓-red?style=flat-square" alt="PrivEsc"/>
 <img src="https://img.shields.io/badge/Cross--Platform-✓-blue?style=flat-square" alt="Cross-Platform"/>
-<img src="https://img.shields.io/badge/File%20I%2FO-✓-blue?style=flat-square" alt="File IO"/>
-<img src="https://img.shields.io/badge/Error%20Handling-✓-blue?style=flat-square" alt="Error Handling"/>
 
 </div>
 
 Perfect for learning:
-- 🔌 TCP socket programming
+- 🔌 TCP socket programming & multi-client architecture
 - 🧵 Multi-threading and concurrency
 - 🎨 Tkinter GUI development
-- 🖥️ Cross-platform compatibility
-- 📁 File encoding and transfer
-- 🔧 Process management
-- 📝 Logging and debugging
+- 🔐 Windows security — UAC, token integrity, privilege escalation
+- 🌐 IP intelligence & OSINT (GeoLocation, ISP, proxy detection)
+- 📁 File encoding, transfer, and remote filesystem navigation
+- 🔧 Process management & system control
 
 ---
 
 ## 🤝 Contributing
 
-<div align="center">
-<img src="https://user-images.githubusercontent.com/74038190/212257460-738ff738-247f-4445-a718-cdd0ca76e2db.gif" width="100">
-</div>
-
-Contributions are welcome! 
+Contributions are welcome!
 
 **How to contribute:**
 1. 🍴 Fork the repository
@@ -599,14 +444,6 @@ Contributions are welcome!
 3. 💾 Commit changes: `git commit -m 'Add AmazingFeature'`
 4. 📤 Push to branch: `git push origin feature/AmazingFeature`
 5. 🔃 Open a Pull Request
-
-**Ideas for contributions:**
-- 🔐 Add SSL/TLS encryption
-- 🔑 Implement authentication system
-- 🌐 Add web-based interface
-- 📱 Mobile client support
-- 🎨 Theme customization
-- 📊 Performance dashboard
 
 ---
 
@@ -643,6 +480,6 @@ MIT License © 2024 Nirupam Pal
 
 <img src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" width="1000">
 
-**Made with ❤️ for the developer community**
+**Made with ❤️ for the cybersecurity community**
 
 </div>

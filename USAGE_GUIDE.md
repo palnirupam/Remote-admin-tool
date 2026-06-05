@@ -1,10 +1,10 @@
-# 📖 Complete Usage Guide - Step by Step
+# 📖 Complete Usage Guide — Step by Step
 
 ## 🎯 Table of Contents
 - [Windows Setup](#-windows-setup)
 - [Linux Setup](#-linux-setup)
-- [Using CLI Server](#-using-cli-server)
 - [Using GUI Server](#-using-gui-server)
+- [Advanced Features](#-advanced-features)
 - [Common Commands](#-common-commands)
 - [Troubleshooting](#-troubleshooting)
 
@@ -46,7 +46,7 @@ pip install -r requirements.txt
 
 ### Step 4: Configure Firewall
 
-Open Command Prompt as Administrator and run:
+Open Command Prompt as Administrator:
 ```cmd
 netsh advfirewall firewall add rule name="Remote Admin Tool" dir=in action=allow protocol=TCP localport=5000
 ```
@@ -54,60 +54,33 @@ netsh advfirewall firewall add rule name="Remote Admin Tool" dir=in action=allow
 ### Step 5: Configure Client IP
 
 1. Open `client.py` in Notepad
-2. Find this line:
+2. Find and edit:
    ```python
-   SERVER_IP = "127.0.0.1"
+   SERVER_IP = "127.0.0.1"   # Change this to your server IP
+   PORT = 5000
    ```
-3. Change to your server's IP:
-   - **Same PC testing**: Keep `127.0.0.1`
-   - **Same network**: Use `192.168.x.x` (your server's local IP)
-   - **Remote**: Use your public IP
-
-4. Save the file
+3. Save the file
 
 ### Step 6: Find Your Server IP
 
-**For local network:**
 ```cmd
 ipconfig
 ```
-Look for "IPv4 Address" under your active network adapter (e.g., `192.168.1.100`)
+Look for "IPv4 Address" (e.g., `192.168.1.100`)
 
 ### Step 7: Run the Server
 
-**Option A: CLI Server**
-```cmd
-python server.py
-```
-
-**Option B: GUI Server (Recommended)**
 ```cmd
 python server_gui.py
 ```
-Then click "🚀 Start Server" button
+Then click **"🚀 Start Server"** button.
 
 ### Step 8: Run the Client
 
-On the client machine (or another Command Prompt):
 ```cmd
 python client.py
 ```
-
 You should see: `✓ Connected to server`
-
-### Step 9: Execute Commands
-
-**In CLI Server:**
-Type commands directly:
-```cmd
-Remote-Admin> whoami
-Remote-Admin> dir
-Remote-Admin> ipconfig
-```
-
-**In GUI Server:**
-- Click command buttons OR
-- Type directly in the terminal
 
 ---
 
@@ -117,8 +90,7 @@ Remote-Admin> ipconfig
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt update
-sudo apt install python3 python3-pip
+sudo apt update && sudo apt install python3 python3-pip
 ```
 
 **Fedora/RHEL:**
@@ -126,590 +98,410 @@ sudo apt install python3 python3-pip
 sudo dnf install python3 python3-pip
 ```
 
-**Arch Linux:**
+**Kali Linux:**
 ```bash
-sudo pacman -S python python-pip
+sudo apt install python3 python3-pip python3-tk
 ```
 
-Verify installation:
-```bash
-python3 --version
-```
-
-### Step 2: Download the Tool
+### Step 2: Clone & Install
 
 ```bash
 git clone https://github.com/palnirupam/Remote-admin-tool.git
 cd Remote-admin-tool
-```
-
-### Step 3: Install Dependencies
-
-**Ubuntu/Debian:**
-**Ubuntu/Debian/Fedora/Arch:**
-```bash
 pip3 install -r requirements.txt
 ```
 
-### Step 4: Configure Firewall
+### Step 3: Allow Firewall Port
 
-**Using UFW (Ubuntu/Debian):**
+**UFW:**
 ```bash
 sudo ufw allow 5000/tcp
-sudo ufw reload
 ```
 
-**Using firewalld (Fedora/RHEL):**
-```bash
-sudo firewall-cmd --permanent --add-port=5000/tcp
-sudo firewall-cmd --reload
-```
-
-**Using iptables:**
+**iptables:**
 ```bash
 sudo iptables -A INPUT -p tcp --dport 5000 -j ACCEPT
-sudo iptables-save
 ```
 
-### Step 5: Configure Client IP
+### Step 4: Run
 
 ```bash
-nano client.py
-# OR
-vim client.py
-# OR
-gedit client.py
+python3 server_gui.py    # Server
+python3 client.py        # Client (on target machine)
 ```
-
-Find and change:
-```python
-SERVER_IP = "127.0.0.1"  # Change this
-```
-
-To your server's IP:
-- **Same PC**: Keep `127.0.0.1`
-- **Same network**: Use `192.168.x.x`
-- **Remote**: Use public IP
-
-Save: `Ctrl+O`, `Enter`, `Ctrl+X` (nano)
-
-### Step 6: Find Your Server IP
-
-```bash
-# Modern Linux
-ip addr show
-
-# OR older systems
-ifconfig
-```
-
-Look for `inet` address (e.g., `192.168.1.100`)
-
-### Step 7: Run the Server
-
-**Option A: CLI Server**
-```bash
-python3 server.py
-```
-
-**Option B: GUI Server**
-```bash
-python3 server_gui.py
-```
-Then click "🚀 Start Server"
-
-### Step 8: Run the Client
-
-On client machine, you can run the python script directly:
-```bash
-python3 client.py
-```
-You should see: `✓ Connected to server`
-
-### Step 9: Build Standalone Executable (Optional)
-
-If you don't want to install Python on the victim machine, you can compile it into a standalone executable (Windows `.exe` or Linux binary) using the auto-builder:
-```bash
-# Build the client
-python3 advanced_build.py
-```
-The compiled binary will be saved in the `dist/` folder.
-
-### Step 9: Execute Commands
-
-**In CLI Server:**
-```bash
-Remote-Admin> whoami
-Remote-Admin> ls -la
-Remote-Admin> ps aux
-```
-
-**In GUI Server:**
-- Click command buttons OR
-- Type directly in terminal
 
 ---
 
-## 💻 Using CLI Server
+## 🛠️ Building Standalone Executable
 
-### Starting the Server
-
-```bash
-# Windows
-python server.py
-
-# Linux
-python3 server.py
-```
-
-### Available Commands
-
-| Command | Description |
-|---------|-------------|
-| `menu` | Show command menu |
-| `clients` | List all connected clients |
-| `switch` | Switch to different client |
-| `info` | Show current client info |
-| `screenshot` | Capture client screenshot |
-| `download` | Download file from client |
-| `upload` | Upload file to client |
-| `exit` | Disconnect current client |
-
-### Quick Command Shortcuts
-
-| Shortcut | Command |
-|----------|---------|
-| `1` | ipconfig (Windows) / ifconfig (Linux) |
-| `2` | whoami |
-| `3` | dir (Windows) / ls (Linux) |
-| `4` | systeminfo (Windows) / uname -a (Linux) |
-| `5` | tasklist (Windows) / ps aux (Linux) |
-| `6` | cd (show current directory) |
-
-### Example Session
+Compile `client.py` → standalone `.exe` (Windows) or binary (Linux).
+No Python needed on the target machine.
 
 ```bash
-Remote-Admin> 2
-DESKTOP-ABC\User
-
-Remote-Admin> 3
- Volume in drive C is Windows
- Directory of C:\Users\User
-...
-
-Remote-Admin> screenshot
-📸 Requesting screenshot...
-  Receiving... 512KB
-✓ Screenshot saved: screenshots/screenshot_DESKTOP-ABC_20240315_143022.png (2.45MB)
-
-Remote-Admin> clients
-================================================================================
-CONNECTED CLIENTS (2/10):
-================================================================================
-  [1] 🟢 ACTIVE DESKTOP-ABC - 192.168.1.100:54321
-      OS: Windows 10 | User: User
-      Connected: 2024-03-15 14:25:30
-  [2] ⚪ LAPTOP-XYZ - 192.168.1.101:54322
-      OS: Linux | User: admin
-      Connected: 2024-03-15 14:26:15
-================================================================================
-
-Remote-Admin> switch
-Select client number: 2
-✓ Switched to: LAPTOP-XYZ (192.168.1.101)
-
-Remote-Admin> exit
-✓ Disconnecting client...
+python advanced_build.py
 ```
+
+- Automatically downloads `bore` tunnel (FREE, no account needed)
+- Injects public IP:Port into the compiled binary
+- Output: `dist/ClientRAT_Global.exe`
 
 ---
 
 ## 🎨 Using GUI Server
 
-### Starting the GUI
+### Starting
 
 ```bash
-# Windows
-python server_gui.py
-
-# Linux
-python3 server_gui.py
+python server_gui.py      # Windows
+python3 server_gui.py     # Linux
 ```
 
-### Step-by-Step GUI Usage
+### Step-by-Step
 
 #### 1. Start the Server
-
-1. Click **"🚀 Start Server"** button (top right)
-2. Status bar will show: `Server listening...`
-3. Button changes to: `✓ Server Running` (green)
+- Click **"🚀 Start Server"** (top right)
+- Status changes to `✓ Server Running` (green)
 
 #### 2. Connect Clients
-
-On each client machine, run:
-```bash
-python client.py    # Windows
-python3 client.py   # Linux
-```
-
-Clients will appear in the **"CONNECTED CLIENTS"** list automatically.
+- Run `python client.py` on each target machine
+- Clients appear automatically in the **"CONNECTED CLIENTS"** panel
 
 #### 3. Select a Client
-
 - Click on any client in the list
-- Selected client shows 🟢 green indicator
 - All command buttons become enabled
 
 #### 4. Execute Commands
+- **Method 1:** Click any button (e.g., "📸 Screenshot")
+- **Method 2:** Type directly in the terminal area + press `Enter`
 
-**Method 1: Click Buttons**
-- Click any command button (e.g., "🌐 Network Info")
-- Output appears in terminal instantly
-
-**Method 2: Type in Terminal**
-- Click in the terminal area
-- Type command directly: `whoami`
-- Press `Enter` to execute
-
-#### 5. Use Advanced Features
-
-**Screenshot:**
-1. Click **"📸 Screenshot"** button
-2. Wait for capture (progress shown)
-3. Screenshot window opens automatically
-4. Click **"💾 Save 4K"** to save
-5. Click **"🔍 100% Size"** for original resolution
-
-**Download File:**
-1. Click **"📥 Download File"** button
-2. Enter file path on client:
-   - Windows: `C:\Users\User\file.txt`
-   - Linux: `/home/user/file.txt`
-3. Choose save location
-4. File downloads to `downloads/` folder
-
-**Upload File:**
-1. Click **"📤 Upload File"** button
-2. Select file from your computer
-3. File uploads to client's current directory
-4. Confirmation appears in terminal
-
-#### 6. System Control
-
-**Restart Client:**
-1. Click **"🔄 Restart System"**
-2. Confirm: Click "Yes"
-3. Client PC restarts immediately
-
-**Shutdown Client:**
-1. Click **"⏻ Shutdown System"**
-2. Confirm: Click "Yes"
-3. Client PC shuts down
-
-**Lock Screen:**
-1. Click **"🔒 Lock Workstation"**
-2. Client screen locks immediately
-
-#### 7. Process Management
-
-**Find Process:**
-1. Click **"🔍 Find Process"**
-2. Enter process name (e.g., `notepad`)
-3. Results show in terminal
-
-**Kill Process:**
-1. Click **"❌ Kill Process"**
-2. Enter process name (e.g., `notepad.exe`)
-3. Confirm: Click "Yes"
-4. Process terminates
-
-#### 8. Switch Between Clients
-
-- Click any client in the list
-- Active client changes instantly
-- Commands automatically adapt to client's OS
-
-#### 9. Keyboard Shortcuts
+#### 5. Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | `↑` `↓` | Navigate command history |
-| `Tab` | Auto-complete commands |
-| `Ctrl+C` | Copy selection / Clear input |
-| `Ctrl+V` | Paste |
 | `Ctrl+L` | Clear terminal |
-| `Ctrl+A` | Select all |
-| `Ctrl+K` | Kill line |
-| `Ctrl+U` | Clear line |
+| `Ctrl+C` | Copy / Clear input |
+| `Ctrl+V` | Paste |
 
-#### 10. Stop the Server
+---
 
-1. Click **"⏹ Stop Server"** button
-2. Confirm: Click "Yes"
-3. All clients disconnect
-4. Server stops
+## 🔥 Advanced Features
+
+### 🗺️ GeoLocation Tracker
+
+**Button:** `🗺️ GeoLocation`
+
+1. Select a connected client
+2. Click **"🗺️ GeoLocation"**
+3. Window opens showing:
+   - 🌍 Country, Region, City, ZIP
+   - 📍 GPS Coordinates
+   - 📡 ISP & Organization
+   - 🔒 VPN/Proxy/Datacenter detection
+   - 🕐 Timezone
+
+4. Click **"🗺️ Open in Google Maps"** to view location
+5. Click **"📋 Copy Coords"** to copy latitude/longitude
+
+> **Note:** If client is behind VPN, location will show VPN server location, not real location.
+
+---
+
+### 👑 Privilege Inspector + UAC Bypass
+
+**Button:** `👑 Privilege`
+
+1. Select a connected client
+2. Click **"👑 Privilege"**
+3. Window shows:
+
+```
+👤 Username      → Who is logged in
+🛡️ Admin Group   → Is user in Administrators group?
+🔒 UAC Enabled   → Is UAC turned on?
+🔑 Integrity     → Low / Medium / High / System
+⚡ Elevated       → Is process already elevated?
+```
+
+**Integrity Level Meanings:**
+
+| Badge | Level | What it means |
+|-------|-------|---------------|
+| 🔴 | Low | Restricted / sandbox |
+| 🟡 | Medium | Standard session (UAC active) |
+| 🟢 | High | Full admin access |
+| 🔵 | System | NT AUTHORITY\SYSTEM |
+
+#### UAC Bypass (fodhelper method)
+
+If the client shows:
+- `Admin Group: Yes ✅`
+- `Integrity: 🟡 Medium`
+- `Elevated: No`
+
+→ The **"🔥 Execute UAC Bypass (fodhelper)"** button will appear.
+
+**How it works:**
+1. Writes payload path to `HKCU\Software\Classes\ms-settings\shell\open\command`
+2. Triggers `fodhelper.exe` (Windows auto-elevated binary)
+3. Client relaunches at **HIGH integrity** — no UAC popup shown
+4. New HIGH connection appears in client list
+
+> **Requires:** Client user must be in the Administrators group. Standard users cannot be bypassed this way.
+
+---
+
+### 🖥️ Live Screen Monitor
+
+**Button:** `🖥️ Screen Stream`
+
+- Streams remote desktop in real-time
+- **Click** anywhere on the stream → sends click to remote
+- **Scroll** mouse wheel → scrolls on remote
+- **Drag** → drag-and-drop on remote
+
+**Keyboard Hotkeys (forwarded to remote):**
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+C` | Copy |
+| `Ctrl+V` | Paste |
+| `Ctrl+Z` | Undo |
+| `Ctrl+A` | Select All |
+| `Ctrl+S` | Save |
+| `Ctrl+X` | Cut |
+| `Ctrl+W` | Close tab |
+| `Ctrl+T` | New tab |
+| `Ctrl+R` | Refresh |
+
+---
+
+### 📁 Visual File Manager
+
+**Button:** `📁 File Manager`
+
+1. Click **"💻 Drives"** to list all drives
+2. Double-click any drive/folder to navigate
+3. Right-click on a file to:
+   - 📥 **Download** — save to your machine
+   - ✏️ **Edit** — open in remote text editor
+   - 🗑️ **Delete** — permanently delete
+
+> Works on both Windows (`C:\`) and Linux (`/home/`) paths.
+
+---
+
+### 📸 Screenshot
+
+**Button:** `📸 Screenshot`
+
+1. Click the button
+2. Screenshot window opens automatically
+3. Options:
+   - **💾 Save 4K** — save at original resolution
+   - **🔍 100% Size** — view at actual size
+
+---
+
+### 🎤 Microphone Recording
+
+**Button:** `🎤 Microphone`
+
+1. Click to **start** recording (button turns red)
+2. Click **"⏹ Stop Mic"** to end
+3. Save dialog appears → choose WAV or MP3
+
+---
+
+### ⌨️ Keylogger
+
+**Button:** `⌨️ Keylog`
+
+1. Click to **start** capture
+2. Keystrokes appear in the terminal in real-time (green text)
+3. Click **"⏹ Stop Keylog"** to end
+4. Auto-saved to `keylogs/` with timestamp
+
+---
+
+### 💬 Send Popup
+
+**Button:** `💬 Send Popup`
+
+Types available:
+- `INFO` — standard message box
+- `WARNING` — warning with ⚠️ sound
+- `ERROR` — error dialog
+- `CYBER` — cyberpunk HUD overlay
+- `OVERRIDE` — fullscreen siren (red, loud)
+
+---
+
+### 🎯 Task Manager
+
+**Button:** `🎯 Task Manager`
+
+- View all running processes (name, PID, CPU%, RAM)
+- Click any process → **Kill** it remotely
+
+---
+
+### 📊 Performance Dashboard
+
+**Button:** `📈 Dashboard`
+
+Real-time graphs:
+- CPU usage %
+- RAM usage %
+- Disk I/O
+
+---
+
+### 📥 Download File
+
+**Button:** `📥 Download`
+
+1. Enter full path on client:
+   - Windows: `C:\Users\victim\secret.txt`
+   - Linux: `/home/user/document.pdf`
+2. Choose save location on your machine
+3. File downloads to `downloads/` folder
+
+---
+
+### 📤 Upload File
+
+**Button:** `📤 Upload`
+
+1. Click and select file from your machine
+2. File uploads to client's current directory
+
+---
+
+### ⚙️ System Control
+
+| Button | Action |
+|--------|--------|
+| 🔄 Restart System | Instantly restarts client PC |
+| ⏻ Shutdown System | Instantly shuts down client PC |
+| 🔒 Lock Workstation | Locks the screen (Windows) |
 
 ---
 
 ## 📝 Common Commands
 
-### Windows Commands
+### Windows
 
 ```cmd
-# Network Information
-ipconfig
-ipconfig /all
-netstat -an
-
-# System Information
-systeminfo
-whoami
-hostname
-
-# File Operations
-dir
-cd C:\Users
-mkdir newfolder
-copy file.txt backup.txt
-del file.txt
-
-# Process Management
-tasklist
-tasklist | findstr notepad
-taskkill /F /IM notepad.exe
-
-# System Control
-shutdown /r /t 0    # Restart
-shutdown /s /t 0    # Shutdown
+ipconfig                    # Network info
+whoami                      # Current user
+whoami /groups              # Show group memberships + integrity
+systeminfo                  # Full system info
+tasklist                    # Running processes
+netstat -an                 # Network connections
+dir C:\Users                # List files
+cd C:\Users\victim          # Change directory
 ```
 
-### Linux Commands
+### Linux
 
 ```bash
-# Network Information
-ifconfig
-ip addr
-netstat -tuln
-
-# System Information
-uname -a
-whoami
-hostname
-lsb_release -a
-
-# File Operations
-ls -la
-cd /home/user
-mkdir newfolder
-cp file.txt backup.txt
-rm file.txt
-
-# Process Management
-ps aux
-ps aux | grep firefox
-kill -9 <PID>
-killall firefox
-
-# System Control
-reboot              # Restart
-shutdown -h now     # Shutdown
-```
-
-### Cross-Platform Commands
-
-These work on both Windows and Linux (auto-converted):
-
-```bash
-whoami              # Current user
-cd                  # Current directory
-screenshot          # Capture screen
-download            # Download file
-upload              # Upload file
-sysinfo             # System information
+ifconfig / ip addr          # Network info
+whoami                      # Current user
+id                          # UID, GID, groups
+uname -a                    # Kernel + OS info
+ps aux                      # Running processes
+netstat -tuln               # Open ports
+ls -la /home/user           # List files
 ```
 
 ---
 
 ## 🔧 Troubleshooting
 
-### Problem: Client Can't Connect
+### ❌ Client Can't Connect
 
-**Check 1: Server Running?**
-```bash
-# Make sure server is running
-python server.py
-# OR
-python server_gui.py
+```
+✅ Is server running? python server_gui.py → Start Server
+✅ Is SERVER_IP correct in client.py?
+✅ Is port 5000 open on firewall?
+✅ Ping test: ping <server_ip>
 ```
 
-**Check 2: Correct IP?**
-```python
-# In client.py, verify:
-SERVER_IP = "192.168.1.100"  # Your server's IP
-```
+### ❌ Port Already in Use
 
-**Check 3: Firewall?**
-```bash
-# Windows - Check firewall rule exists
-netsh advfirewall firewall show rule name="Remote Admin Tool"
-
-# Linux - Check port is open
-sudo ufw status
-```
-
-**Check 4: Network Connection?**
-```bash
-# Test connectivity
-ping 192.168.1.100
-```
-
-### Problem: Port Already in Use
-
-**Windows:**
-```cmd
-# Find process using port 5000
-netstat -ano | findstr :5000
-
-# Kill the process
-taskkill /PID <process_id> /F
-```
-
-**Linux:**
-```bash
-# Find process using port 5000
-lsof -i :5000
-
-# Kill the process
-kill -9 <process_id>
-```
-
-### Problem: Screenshot Not Working
-
-**Solution 1: Install Dependencies**
-```bash
+```powershell
 # Windows
-pip install -r requirements.txt
-
+netstat -ano | findstr :5000
+taskkill /PID <pid> /F
+```
+```bash
 # Linux
-pip3 install -r requirements.txt
+lsof -i :5000
+kill -9 <pid>
 ```
 
-### Problem: .exe File Not Creating
+### ❌ GeoLocation Fails
 
-**Solution: Ensure PyInstaller is installed**
-```bash
-pip install pyinstaller
+- Check internet connection on server machine
+- VPN on server may cause issues with api.ipify.org
+- Private/localhost clients auto-resolve their public IP
+
+### ❌ UAC Bypass Not Working
+
 ```
-Then run the build script again, and check the `dist` folder for the `.exe`.
-
-**Solution 2: Check Display Access**
-- Linux: Ensure client has X11 display access
-- Windows: Run as Administrator if needed
-
-### Problem: File Transfer Fails
-
-**Check 1: File Path Correct?**
-```bash
-# Windows - Use backslashes
-C:\Users\User\file.txt
-
-# Linux - Use forward slashes
-/home/user/file.txt
+✅ Is client on Windows? (Linux has no UAC)
+✅ Is user in Administrators group? (is_admin: true required)
+✅ Is UAC enabled? (if UAC=OFF, already elevated — no bypass needed)
+❌ Standard user (is_admin: false) → bypass impossible without prior exploit
 ```
 
-**Check 2: File Size?**
-- Maximum file size: 50MB
-- Larger files will be rejected
+### ❌ File Manager Empty
 
-**Check 3: Permissions?**
-- Ensure client has read/write permissions
-- Linux: Check with `ls -l filename`
+- File manager now uses string-based path normalization
+- If still empty: restart client and try again
+- Check client terminal for errors
 
-### Problem: Commands Not Working
+### ❌ Screenshot Not Working
 
-**Check 1: Client OS?**
-- Windows commands won't work on Linux client
-- Linux commands won't work on Windows client
-- Use cross-platform commands when possible
-
-**Check 2: Command Syntax?**
 ```bash
-# Correct
-tasklist
-
-# Incorrect
-tasklist /svc /fi "STATUS eq running"  # Too complex
+pip install pillow mss
 ```
 
-### Problem: GUI Not Opening
+### ❌ GUI Not Opening
 
-**Solution 1: Install Tkinter**
 ```bash
-# Ubuntu/Debian
+# Linux
 sudo apt install python3-tk
-
-# Fedora
-sudo dnf install python3-tkinter
-
-# Windows - Already included with Python
-```
-
-**Solution 2: Check Display**
-```bash
-# Linux - Ensure DISPLAY is set
-echo $DISPLAY
-export DISPLAY=:0
 ```
 
 ---
 
 ## 🎓 Tips & Best Practices
 
-### Security Tips
-
-1. **Use on trusted networks only**
-2. **Change default port** if needed:
-   ```python
-   PORT = 5000  # Change to any available port
-   ```
-3. **Monitor server.log** for suspicious activity
-4. **Don't use on public networks** without VPN
-
-### Performance Tips
-
-1. **Close unused clients** to free resources
-2. **Use CLI server** for better performance
-3. **Limit screenshot frequency** (large data transfer)
-4. **Keep file transfers under 50MB**
-
-### Usage Tips
-
-1. **Test locally first** (127.0.0.1)
-2. **Use GUI for beginners**, CLI for advanced users
-3. **Check logs** when troubleshooting
-4. **Use Tab completion** in GUI terminal
-5. **Save important outputs** using menu options
+1. **Test locally first** using `127.0.0.1` before deploying remotely
+2. **Check Activity Log** (right panel) for real-time status messages
+3. **Restart client after bug fixes** — old client.py won't have new features
+4. **Use Tab** in terminal for command auto-complete
+5. **For UAC bypass test** — create a separate Windows Admin account and test with that
 
 ---
 
 ## 📞 Getting Help
 
-If you encounter issues:
-
 1. **Check this guide** first
-2. **Review server.log** for errors
-3. **Check GitHub Issues**: https://github.com/palnirupam/Remote-admin-tool/issues
+2. **Review server.log** for errors  
+3. **GitHub Issues**: https://github.com/palnirupam/Remote-admin-tool/issues
 4. **Open new issue** with:
-   - Your OS (Windows/Linux)
-   - Python version
-   - Error message
+   - Your OS and Python version
+   - Error message (screenshot preferred)
    - Steps to reproduce
 
 ---
 
 <div align="center">
 
-**Happy Remote Administration! 🚀**
+**Happy Hacking! 🔥**
 
 Made with ❤️ by [Nirupam Pal](https://github.com/palnirupam)
 

@@ -195,6 +195,8 @@ adv_btns = [
     ("💬 Send Popup",  feat.send_popup_message,        "#0277BD"),
     ("🎯 Task Manager",feat.request_process_list,      "#1976D2"),
     ("📈 Dashboard",   feat.show_performance_dashboard,"#0097A7"),
+    ("🗺️ GeoLocation", feat.show_geolocation,          "#2E7D32"),
+    ("👑 Privilege",   feat.request_privilege_info,    "#6A1B9A"),
 ]
 advanced_buttons = []
 for text, cmd, color in adv_btns:
