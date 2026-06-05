@@ -69,7 +69,6 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 <div align="center">
 
 | Feature | Description | Status |
-| Feature | Description | Status |
 |:-------:|:------------|:------:|
 | 🔌 | **TCP Communication** - Reliable client-server architecture | ✅ |
 | 👥 | **Multi-Client Support** - Manage multiple machines simultaneously | ✅ |
@@ -77,31 +76,50 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 | 📸 | **4K Screenshots** - High-quality screen capture with dynamic compression | ✅ |
 | 📷 | **Webcam Capture** - Real-time webcam snapshot directly to GUI | ✅ |
 | 📁 | **File Transfer** - Upload/download with progress tracking | ✅ |
-| 💬 | **Cross-Platform Popups** - Native MessageBox, Zenity, or AppleScript popups | ✅ |
+| 💬 | **Multi-Style Popups** - INFO / WARNING / ERROR / CYBER / OVERRIDE — always shown topmost | ✅ |
+| 🖥️ | **Live Screen Monitor** - Real-time remote desktop view with mouse & keyboard control | ✅ |
 | 🎯 | **OS-Specific Commands** - Advanced smart buttons that adapt to Windows/Linux/Mac | ✅ |
 | 🛡️ | **Anti-Scanner Protection** - Real-time socket probing and ghost connection rejection | ✅ |
 | ⌨️ | **Zero-Delay Terminal** - Fully interactive terminal with zero output latency | ✅ |
 | 🎤 | **Live Microphone Streaming** - Toggle start/stop recording with auto MP3 save dialog | ✅ |
 | ⌨️ | **Live Keylog Streaming** - Real-time keystroke capture with toggle start/stop | ✅ |
+| 📋 | **Visual File Manager** - Browse, read, edit, delete remote files with GUI | ✅ |
+| 🎯 | **Remote Task Manager** - View and kill processes on the client machine | ✅ |
+| 📊 | **Live Performance Dashboard** - Real-time CPU, RAM, Disk usage monitor | ✅ |
 
 </div>
 
 ---
 
-## 🆕 What's New in v2.0?
+## 🆕 What's New?
 
-*   **Completely Modularized Backend:** `server_gui.py` is now backed by `gui_globals.py`, `gui_network.py`, `gui_features.py`, and `gui_commands.py` eliminating circular dependencies and UI freezes.
-*   **Webcam Support:** Capture images using the remote client's webcam (`opencv-python`).
-*   **Scary Native Popups:** Trigger native UI popups (Windows, macOS, Linux) with fallback support. Windows popups even trigger system sirens & TTS!
-*   **Zero-Delay Interactive Terminal:** Implemented `\n}` payload EOF markers so command output is rendered instantly with 0ms delay.
-*   **Advanced Anti-Scanner Protection:** Ghost TCP connections, port scanners, and older client executables are instantly purged.
-*   **Smarter Quick Commands:** Action buttons are dynamically generated based on the client's OS (Windows vs Linux vs Mac) and focus on advanced forensics (Firewalls, Scheduled Tasks, Memory Hogs).
-*   **Clean Process Kills:** Clicking "Disconnect" instantly and safely unloads the `.exe` from the client's RAM using hard `os._exit(0)`.
-*   **🎤 Live Microphone Streaming (v2.1):** Microphone is now a **start/stop toggle** just like Keylog. Click "🎤 Microphone" to start recording, click "⏹ Stop Mic" to end. Receives the full WAV and auto-prompts save dialog with MP3 conversion.
+### v2.2 — Bug Fix Patch *(Latest)*
+
+*   **🔔 Popup Topmost Fix:** `INFO`, `WARNING`, and `ERROR` dialogs now always appear **on top of all windows** using a withdrawn topmost Tk parent — previously they could appear hidden behind other apps.
+*   **🖥️ Live Screen Monitor — Stop Button Fixed:** The `⏹ Stop Stream` button now correctly calls `on_close()` which sends `LIVE_SCREEN_STOP` to the client. Previously it called `win.destroy()` directly, skipping the stop command entirely — leaving the client stuck in a streaming loop.
+*   **🔁 Duplicate `_screen_stream_active` Flag Fixed:** `gui_commands.py` had two separate `_screen_stream_active` variables at different scopes. `execute_command()` checked one while `start_screen_stream()` set the other — they were never in sync. Now there is only one shared variable.
+*   **⚙️ Subprocess Popup Launch Fixed:** The popup subprocess now correctly uses `getattr(sys, 'frozen', False)` to detect whether the client is a compiled `.exe` or a raw Python script, and builds `cmd_args` accordingly — fixing popups for both modes.
+*   **🔐 Persistence Fix:** `_add_persistence()` now correctly writes the startup registry entry for both frozen `.exe` and raw Python script modes using `sys.executable` + `sys.argv[0]`.
+
+---
+
+### v2.1 — Live Streaming Update
+
+*   **🎤 Live Microphone Streaming:** Microphone is now a **start/stop toggle** just like Keylog. Click "🎤 Microphone" to start recording, click "⏹ Stop Mic" to end. Receives the full WAV and auto-prompts save dialog with MP3 conversion.
 *   **⌨️ Live Keylog Streaming:** Keystrokes now stream in real-time to the server terminal with a toggle start/stop button. No more waiting for a timer — click "Stop Keylog" whenever you're done.
 *   **Bug Fixes:** Increased `max_chunks` for microphone (200→2000 prevents truncation), dynamic timeout based on recording duration, `sd.wait()` hang protection via daemon thread, removed duplicate POPUP handler, replaced `os._exit(0)` with hybrid `Timer(3s) + sys.exit(0)` for clean shutdown.
 
 ---
+
+### v2.0 — Major Release
+
+*   **Completely Modularized Backend:** `server_gui.py` is now backed by `gui_globals.py`, `gui_network.py`, `gui_features.py`, and `gui_commands.py` eliminating circular dependencies and UI freezes.
+*   **Webcam Support:** Capture images using the remote client's webcam (`opencv-python`).
+*   **Multi-Style Popup Alerts:** 5 popup types — INFO, WARNING, ERROR, CYBER (cyberpunk HUD), OVERRIDE (fullscreen siren). Windows popups trigger system sounds & TTS speech synthesis.
+*   **Zero-Delay Interactive Terminal:** Implemented `\n}` payload EOF markers so command output is rendered instantly with 0ms delay.
+*   **Advanced Anti-Scanner Protection:** Ghost TCP connections, port scanners, and older client executables are instantly purged.
+*   **Smarter Quick Commands:** Action buttons are dynamically generated based on the client's OS (Windows vs Linux vs Mac).
+*   **Clean Process Kills:** Clicking "Disconnect" instantly and safely unloads the `.exe` from the client's RAM.
 
 ---
 

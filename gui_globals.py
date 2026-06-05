@@ -26,6 +26,10 @@ keylog_button = None
 mic_active = False
 mic_button = None
 
+# ── Screen Monitor Live-Stream State ──────────────────────────
+screen_monitor_active = False
+screen_monitor_button = None
+
 # ── Widget References (set by server_gui.py after creation) ─────
 root = None
 terminal_output = None
@@ -39,6 +43,13 @@ disconnect_btn = None
 command_buttons = []
 advanced_buttons = []
 commands_container = None
+
+# ── Singleton Window References ────────────────────────────────
+dashboard_window = None
+task_manager_window = None
+file_manager_window = None
+file_editor_window = None
+screen_monitor_window = None
 
 
 # ── Global Logging Function ──
@@ -54,18 +65,17 @@ def log_message(message, level="INFO"):
         root.after(0, lambda: log_message(message, level))
         return
 
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    log_text.config(state="normal")
-    log_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
+    try:
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        tags = {"INFO": "info", "SUCCESS": "success", "ERROR": "error", "WARNING": "warning"}
+        icons = {"INFO": "ℹ️ ", "SUCCESS": "✓ ", "ERROR": "✗ ", "WARNING": "⚠ "}
+        tag = tags.get(level, "info")
+        icon = icons.get(level, "  ")
 
-    if level == "INFO":
-        log_text.insert(tk.END, f"{message}\n", "info")
-    elif level == "SUCCESS":
-        log_text.insert(tk.END, f"{message}\n", "success")
-    elif level == "ERROR":
-        log_text.insert(tk.END, f"{message}\n", "error")
-    elif level == "WARNING":
-        log_text.insert(tk.END, f"{message}\n", "warning")
-
-    log_text.see(tk.END)
-    log_text.config(state="disabled")
+        log_text.config(state="normal")
+        log_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
+        log_text.insert(tk.END, f"{icon}{message}\n", tag)
+        log_text.see(tk.END)
+        log_text.config(state="disabled")
+    except Exception:
+        pass

