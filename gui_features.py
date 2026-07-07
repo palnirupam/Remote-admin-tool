@@ -728,12 +728,20 @@ def show_performance_dashboard():
     disk_bar.pack(pady=5)
 
     win.after_id = None
+    win.metrics_pending = False
 
     def poll():
         if not g.active_client_id or not win.winfo_exists():
             return
-        import gui_commands as cmds
-        threading.Thread(target=cmds.execute_command, args=("SYSTEM_METRICS", "Get System Metrics"), daemon=True).start()
+        if not win.metrics_pending:
+            win.metrics_pending = True
+            import gui_commands as cmds
+            def _run_metrics():
+                try:
+                    cmds.execute_command("SYSTEM_METRICS", "Get System Metrics")
+                finally:
+                    g.root.after(0, lambda: setattr(win, "metrics_pending", False) if win.winfo_exists() else None)
+            threading.Thread(target=_run_metrics, daemon=True).start()
         win.after_id = win.after(3000, poll)
 
     def update_metrics(data):
