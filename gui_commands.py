@@ -14,6 +14,14 @@ def log_message(message, level="INFO"):
     g.log_message(message, level)
 
 
+def _call_window_method(win, method_name):
+    try:
+        if win and win.winfo_exists():
+            getattr(win, method_name)()
+    except (tk.TclError, AttributeError):
+        pass
+
+
 # _screen_stream_active is defined near the Live Screen Stream section below
 
 
@@ -200,7 +208,8 @@ def _handle_special_response(output):
             if response.get("status") == "success":
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"✓ {m}\n", "success"))
                 if g.file_manager_window and g.file_manager_window.winfo_exists():
-                    g.root.after(100, lambda: g.file_manager_window.refresh())
+                    file_manager = g.file_manager_window
+                    g.root.after(100, lambda w=file_manager: _call_window_method(w, "refresh"))
             else:
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ {m}\n", "error"))
 
@@ -262,13 +271,15 @@ def _handle_special_response(output):
             else:
                 g.root.after(0, lambda m=response.get('message'): messagebox.showerror("File Manager Error", f"Failed to list directory:\n{m}"))
                 if g.file_manager_window and g.file_manager_window.winfo_exists():
-                    g.root.after(0, lambda: g.file_manager_window.enable_controls())
+                    file_manager = g.file_manager_window
+                    g.root.after(0, lambda w=file_manager: _call_window_method(w, "enable_controls"))
 
         elif resp_type == "DELETE_FILE":
             if response.get("status") == "success":
                 g.root.after(0, lambda: messagebox.showinfo("Success", "Deleted successfully."))
                 if g.file_manager_window and g.file_manager_window.winfo_exists():
-                    g.root.after(100, lambda: g.file_manager_window.refresh())
+                    file_manager = g.file_manager_window
+                    g.root.after(100, lambda w=file_manager: _call_window_method(w, "refresh"))
             else:
                 g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Delete Error", f"Failed to delete:\n{m}"))
 
@@ -280,7 +291,8 @@ def _handle_special_response(output):
                     content_str = raw_bytes.decode("utf-8")
                     
                     if g.file_manager_window and g.file_manager_window.winfo_exists():
-                        g.root.after(0, lambda: g.file_manager_window.enable_controls())
+                        file_manager = g.file_manager_window
+                        g.root.after(0, lambda w=file_manager: _call_window_method(w, "enable_controls"))
                         
                     g.root.after(0, lambda: feat.open_file_editor(response.get("path"), response.get("encoding"), content_str))
                 except Exception as e:
@@ -288,17 +300,20 @@ def _handle_special_response(output):
             else:
                 g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Editor Error", f"Failed to read file:\n{m}"))
                 if g.file_manager_window and g.file_manager_window.winfo_exists():
-                    g.root.after(0, lambda: g.file_manager_window.enable_controls())
+                    file_manager = g.file_manager_window
+                    g.root.after(0, lambda w=file_manager: _call_window_method(w, "enable_controls"))
 
         elif resp_type == "WRITE_TEXT_FILE":
             if response.get("status") == "success":
                 g.root.after(0, lambda: messagebox.showinfo("Success", "Saved successfully."))
                 if g.file_editor_window and g.file_editor_window.winfo_exists():
-                    g.root.after(0, lambda: g.file_editor_window.on_save_success())
+                    file_editor = g.file_editor_window
+                    g.root.after(0, lambda w=file_editor: _call_window_method(w, "on_save_success"))
             else:
                 g.root.after(0, lambda m=response.get('message'): messagebox.showerror("Save Error", f"Failed to save file:\n{m}"))
                 if g.file_editor_window and g.file_editor_window.winfo_exists():
-                    g.root.after(0, lambda: g.file_editor_window.on_save_failed())
+                    file_editor = g.file_editor_window
+                    g.root.after(0, lambda w=file_editor: _call_window_method(w, "on_save_failed"))
 
         elif resp_type == "PRIV_INFO":
             g.root.after(0, lambda r=response: feat.show_privilege_window(r))
