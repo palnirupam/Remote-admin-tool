@@ -560,8 +560,8 @@ def upload_file():
             file_data = base64.b64encode(f.read()).decode()
         
         cmd = f"UPLOAD:{filename}:{file_data}"
-        conn.send(cmd.encode())
-        
+        conn.sendall(cmd.encode())
+
         conn.settimeout(10.0)
         data = conn.recv(4096)
         response = json.loads(data.decode())

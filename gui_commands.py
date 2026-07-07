@@ -45,7 +45,7 @@ def execute_command(cmd, cmd_name):
 
         conn.settimeout(1.0)
         log_message(f"Executing: {cmd}", "INFO")
-        conn.send(cmd.encode())
+        conn.sendall(cmd.encode())
 
         if cmd.lower() == "exit":
             g.root.after(0, lambda: g.terminal_output.insert(tk.END, "\n✓ Disconnecting...\n\n", "success"))
