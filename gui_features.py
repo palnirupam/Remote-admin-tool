@@ -1808,15 +1808,20 @@ def request_screen_monitor():
     win.current_photo = None
     win.remote_resolution = "1024x768"
     win.last_frame_time = time.time()
+    win.control_send_lock = threading.Lock()
 
     # ── Shared helpers ────────────────────────────────────────────────────────
     def _send_mouse_cmd(cmd_str):
         """Send a mouse/keyboard command to active client in a background thread."""
         def _send():
             try:
+                conn = None
                 with g.clients_lock:
                     if g.active_client_id in g.clients:
-                        g.clients[g.active_client_id]["conn"].send(cmd_str.encode())
+                        conn = g.clients[g.active_client_id]["conn"]
+                if conn:
+                    with win.control_send_lock:
+                        conn.sendall(cmd_str.encode())
             except Exception:
                 pass
         threading.Thread(target=_send, daemon=True).start()
@@ -1834,6 +1839,8 @@ def request_screen_monitor():
             display_h = int(img_h * ratio)
         else:
             display_w, display_h = img_w, img_h
+        if display_w <= 0 or display_h <= 0:
+            return None, None
         offset_x = (cw - display_w) // 2
         offset_y = (ch - display_h) // 2
         if not (offset_x <= event.x < offset_x + display_w and
@@ -1852,35 +1859,57 @@ def request_screen_monitor():
 
     # ── Mouse Click / Drag / Scroll ───────────────────────────────────────────
     _drag_moved = [False]
+    _left_button_down = [False]
+    _last_remote_pos = [None, None]
+    _last_drag_sent = [0.0]
 
     def on_btn_press(event):
         """Mouse button pressed — start of potential drag."""
         _drag_moved[0] = False
         if not g.active_client_id:
             return
+        canvas.focus_set()
         rx, ry = _calc_remote_coords(event)
         if rx is not None:
+            _left_button_down[0] = True
+            _last_remote_pos[0], _last_remote_pos[1] = rx, ry
+            try:
+                canvas.grab_set()
+            except Exception:
+                pass
             _send_mouse_cmd(f"MOUSE_PRESS:{rx}:{ry}")
 
     def on_btn_release(event):
         """Mouse button released — send click if no drag occurred, else release."""
-        if not g.active_client_id:
+        try:
+            canvas.grab_release()
+        except Exception:
+            pass
+        if not g.active_client_id or not _left_button_down[0]:
+            _drag_moved[0] = False
+            _left_button_down[0] = False
             return
         rx, ry = _calc_remote_coords(event)
-        if rx is not None:
-            if not _drag_moved[0]:
-                _send_mouse_cmd(f"MOUSE_CLICK:{rx}:{ry}:left")
-            else:
-                _send_mouse_cmd(f"MOUSE_RELEASE:{rx}:{ry}")
+        if rx is None:
+            rx, ry = _last_remote_pos
+        if rx is not None and ry is not None:
+            _send_mouse_cmd(f"MOUSE_RELEASE:{rx}:{ry}")
         _drag_moved[0] = False
+        _left_button_down[0] = False
+        _last_remote_pos[0], _last_remote_pos[1] = None, None
 
     def on_btn_drag(event):
         """Mouse moved while button held — drag in progress."""
-        if not g.active_client_id:
+        if not g.active_client_id or not _left_button_down[0]:
             return
         _drag_moved[0] = True
         rx, ry = _calc_remote_coords(event)
         if rx is not None:
+            _last_remote_pos[0], _last_remote_pos[1] = rx, ry
+            now = time.time()
+            if now - _last_drag_sent[0] < 0.02:
+                return
+            _last_drag_sent[0] = now
             _send_mouse_cmd(f"MOUSE_DRAG:{rx}:{ry}")
 
     def on_right_click(event):
@@ -1920,6 +1949,7 @@ def request_screen_monitor():
     canvas.bind("<MouseWheel>",      on_scroll)               # Windows
     canvas.bind("<Button-4>", lambda e: on_scroll(e, "up"))   # Linux scroll up
     canvas.bind("<Button-5>", lambda e: on_scroll(e, "down")) # Linux scroll down
+    canvas.bind("<Enter>", lambda e: canvas.focus_set())
 
     def on_key_press(event):
         """Send key press to remote client. Supports Ctrl+key hotkeys and special keys."""
@@ -1958,6 +1988,16 @@ def request_screen_monitor():
             _send_mouse_cmd(f"KEY_PRESS:{key_name}")
 
     win.bind("<Key>", on_key_press)
+    canvas.bind("<Key>", on_key_press)
+
+    def focus_viewer():
+        try:
+            if win.winfo_exists():
+                win.focus_force()
+                canvas.focus_set()
+        except Exception:
+            pass
+    win.after(100, focus_viewer)
 
     def update_frame(img_data_b64, resolution):
         if not win.winfo_exists():

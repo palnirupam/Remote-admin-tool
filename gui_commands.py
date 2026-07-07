@@ -703,13 +703,16 @@ def _cleanup_mic():
 # ── Live Screen Stream ────────────────────────────────────────────────────────
 
 _screen_stream_active = False
+_screen_stream_cleanup_done = False
 
 def start_screen_stream(frame_callback):
     """Send LIVE_SCREEN to client, receive screen frames and invoke callback."""
-    global _screen_stream_active
+    global _screen_stream_active, _screen_stream_cleanup_done
     _screen_stream_active = True
+    _screen_stream_cleanup_done = False
 
     conn = None
+    previous_timeout = None
     try:
         with g.clients_lock:
             if not g.active_client_id or g.active_client_id not in g.clients:
@@ -719,7 +722,8 @@ def start_screen_stream(frame_callback):
             conn = g.clients[g.active_client_id]["conn"]
 
         log_message("Starting Live Screen Stream...", "INFO")
-        conn.send(b"LIVE_SCREEN")
+        conn.sendall(b"LIVE_SCREEN")
+        previous_timeout = conn.gettimeout()
         conn.settimeout(0.3)
 
         buf = b""
@@ -759,7 +763,6 @@ def start_screen_stream(frame_callback):
                 # Wait 200ms for client to process LIVE_SCREEN_STOP and stop sending
                 time.sleep(0.2)
                 # Flush leftover packets in the socket buffer
-                old_timeout = conn.gettimeout()
                 conn.settimeout(0.0)
                 try:
                     while True:
@@ -768,7 +771,7 @@ def start_screen_stream(frame_callback):
                 except (BlockingIOError, socket.error):
                     pass
                 finally:
-                    conn.settimeout(1.0)
+                    conn.settimeout(previous_timeout)
             except Exception as fe:
                 log_message(f"Error flushing socket: {fe}", "WARNING")
         _cleanup_screen_stream()
@@ -782,7 +785,7 @@ def stop_screen_stream():
             if g.active_client_id and g.active_client_id in g.clients:
                 conn = g.clients[g.active_client_id]["conn"]
                 try:
-                    conn.send(b"LIVE_SCREEN_STOP")
+                    conn.sendall(b"LIVE_SCREEN_STOP")
                 except Exception:
                     pass
     except Exception:
@@ -790,7 +793,10 @@ def stop_screen_stream():
     _cleanup_screen_stream()
 
 def _cleanup_screen_stream():
-    global _screen_stream_active
+    global _screen_stream_active, _screen_stream_cleanup_done
+    if _screen_stream_cleanup_done:
+        return
+    _screen_stream_cleanup_done = True
     _screen_stream_active = False
     
     # Restore screen stream button status if any reference exists
