@@ -267,18 +267,16 @@ def disconnect_active_client():
 def _is_socket_alive(sock):
     """Actually probe the socket to see if it's still connected."""
     try:
+        old_timeout = sock.gettimeout()
         sock.setblocking(False)
-        data = sock.recv(1, socket.MSG_PEEK)
-        sock.setblocking(True)
-        return data != b""   # empty bytes = graceful close
-    except BlockingIOError:
-        sock.setblocking(True)
-        return True           # would block = still alive
-    except Exception:
         try:
-            sock.setblocking(True)
-        except Exception:
-            pass
+            data = sock.recv(1, socket.MSG_PEEK)
+            return data != b""   # empty bytes = graceful close
+        except BlockingIOError:
+            return True           # would block = still alive
+        finally:
+            sock.settimeout(old_timeout)
+    except Exception:
         return False
 
 
