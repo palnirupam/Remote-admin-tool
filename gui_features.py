@@ -1459,8 +1459,9 @@ def show_geolocation():
     # Mouse wheel scrolling
     def on_mousewheel(event):
         canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-    canvas.bind_all("<MouseWheel>", on_mousewheel)
-    win.bind("<Destroy>", lambda e: canvas.unbind_all("<MouseWheel>"))
+    canvas.bind("<MouseWheel>", on_mousewheel)
+    body.bind("<MouseWheel>", on_mousewheel)
+    win.bind("<MouseWheel>", on_mousewheel)
 
     # ── Loading ────────────────────────────────────────────────────────────────
     loading_lbl = tk.Label(body, text="⏳  Fetching IP location data...",
