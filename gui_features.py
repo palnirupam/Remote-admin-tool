@@ -1457,6 +1457,7 @@ def show_geolocation():
     # ── Shared state for coordinate updates ───────────────────────────────────
     state = {"lat": None, "lon": None, "coord_label": None,
              "acc_label": None, "maps_url": None}
+    win._geo_state = state
 
     # ── Helper: add info row ───────────────────────────────────────────────────
     def add_row(parent, label, value, value_color="#E0E0E0"):
