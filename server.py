@@ -988,7 +988,7 @@ while True:
                 print(json.dumps(response, indent=2))
                 print("-"*80 + "\n")
         
-        except:
+        except Exception:
             # Regular output
             print("\n" + "-"*80)
             print(output)
