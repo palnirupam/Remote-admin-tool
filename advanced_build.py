@@ -174,6 +174,11 @@ def main():
         print("[+] ========================================= [+]")
     except subprocess.CalledProcessError as e:
         print(f"\n[-] Build failed (error code: {e.returncode}).")
+        try:
+            bore_proc.kill()
+        except Exception:
+            pass
+        return
     finally:
         if os.path.exists(temp_file):
             os.remove(temp_file)
