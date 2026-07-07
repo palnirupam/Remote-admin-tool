@@ -367,9 +367,27 @@ def capture_audio(duration=10):
 _screen_stream_active = False
 _screen_stream_thread = None
 
+# Globally cache pynput controllers for higher responsiveness and low latency
+_mouse_controller = None
+_keyboard_controller = None
+
+def get_mouse_controller():
+    global _mouse_controller
+    if _mouse_controller is None:
+        from pynput.mouse import Controller
+        _mouse_controller = Controller()
+    return _mouse_controller
+
+def get_keyboard_controller():
+    global _keyboard_controller
+    if _keyboard_controller is None:
+        from pynput.keyboard import Controller
+        _keyboard_controller = Controller()
+    return _keyboard_controller
+
 def capture_live_frame():
     try:
-        from PIL import Image
+        from PIL import Image, ImageDraw
         import io
         import mss
         
@@ -378,6 +396,27 @@ def capture_live_frame():
             monitor = sct.monitors[1]
             screenshot = sct.grab(monitor)
             pil_img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+            
+            # Draw cursor on the frame for better user control (AnyDesk-style cursor visibility)
+            try:
+                m = get_mouse_controller()
+                cx, cy = m.position
+                mx = cx - monitor["left"]
+                my = cy - monitor["top"]
+                if 0 <= mx < monitor["width"] and 0 <= my < monitor["height"]:
+                    draw = ImageDraw.Draw(pil_img)
+                    cursor_points = [
+                        (mx, my),
+                        (mx, my + 15),
+                        (mx + 4, my + 11),
+                        (mx + 8, my + 18),
+                        (mx + 11, my + 16),
+                        (mx + 7, my + 10),
+                        (mx + 12, my + 10)
+                    ]
+                    draw.polygon(cursor_points, fill="white", outline="black")
+            except Exception:
+                pass
             
         orig_w, orig_h = pil_img.size
         max_w = 1024
@@ -400,9 +439,29 @@ def capture_live_frame():
     except Exception as e:
         # Fallback to ImageGrab if mss fails
         try:
-            from PIL import ImageGrab
+            from PIL import ImageGrab, ImageDraw
             screenshot = ImageGrab.grab()
             orig_w, orig_h = screenshot.size
+            
+            # Draw cursor on fallback
+            try:
+                m = get_mouse_controller()
+                mx, my = m.position
+                if 0 <= mx < orig_w and 0 <= my < orig_h:
+                    draw = ImageDraw.Draw(screenshot)
+                    cursor_points = [
+                        (mx, my),
+                        (mx, my + 15),
+                        (mx + 4, my + 11),
+                        (mx + 8, my + 18),
+                        (mx + 11, my + 16),
+                        (mx + 7, my + 10),
+                        (mx + 12, my + 10)
+                    ]
+                    draw.polygon(cursor_points, fill="white", outline="black")
+            except Exception:
+                pass
+
             max_w = 1024
             if orig_w > max_w:
                 ratio = max_w / orig_w
@@ -1737,13 +1796,14 @@ def main_loop():
                                          "MOUSE_RELEASE:", "MOUSE_DRAG:", "MOUSE_SCROLL:",
                                          "KEY_PRESS:")):
                         try:
-                            from pynput.mouse import Button, Controller as MouseController
-                            from pynput.keyboard import Key, Controller as KeyboardController
+                            from pynput.mouse import Button
+                            from pynput.keyboard import Key
+                            m = get_mouse_controller()
+                            k = get_keyboard_controller()
 
                             if cmd.startswith("MOUSE_CLICK:"):
                                 parts = cmd.split(":")
                                 x, y, btn_type = int(parts[1]), int(parts[2]), parts[3]
-                                m = MouseController()
                                 m.position = (x, y)
                                 time.sleep(0.05)
                                 if btn_type == "right":
@@ -1756,52 +1816,84 @@ def main_loop():
                             elif cmd.startswith("MOUSE_PRESS:"):
                                 parts = cmd.split(":")
                                 x, y = int(parts[1]), int(parts[2])
-                                m = MouseController()
                                 m.position = (x, y)
                                 m.press(Button.left)
 
                             elif cmd.startswith("MOUSE_RELEASE:"):
                                 parts = cmd.split(":")
                                 x, y = int(parts[1]), int(parts[2])
-                                m = MouseController()
                                 m.position = (x, y)
                                 m.release(Button.left)
 
                             elif cmd.startswith("MOUSE_DRAG:"):
                                 parts = cmd.split(":")
                                 x, y = int(parts[1]), int(parts[2])
-                                m = MouseController()
                                 m.position = (x, y)
 
                             elif cmd.startswith("MOUSE_MOVE:"):
                                 parts = cmd.split(":")
                                 x, y = int(parts[1]), int(parts[2])
-                                m = MouseController()
                                 m.position = (x, y)
 
                             elif cmd.startswith("MOUSE_SCROLL:"):
                                 delta = int(cmd.split(":")[1])
-                                m = MouseController()
                                 m.scroll(0, delta)
 
                             elif cmd.startswith("KEY_PRESS:"):
                                 key_name = cmd.split(":", 1)[1]
-                                k = KeyboardController()
-                                if key_name.startswith("ctrl+"):
-                                    # Ctrl+key hotkey (e.g. ctrl+c, ctrl+v, ctrl+z)
-                                    actual = key_name.split("+", 1)[1]
-                                    with k.pressed(Key.ctrl):
-                                        k.press(actual)
-                                        k.release(actual)
-                                elif key_name.startswith("Key."):
-                                    attr = key_name.split(".")[1]
-                                    key_obj = getattr(Key, attr, None)
-                                    if key_obj:
-                                        k.press(key_obj)
-                                        k.release(key_obj)
+                                if "+" in key_name:
+                                    parts = key_name.split("+")
+                                    modifiers = parts[:-1]
+                                    target_key = parts[-1]
+                                    
+                                    mod_objs = []
+                                    for mod in modifiers:
+                                        if mod == "ctrl":
+                                            mod_objs.append(Key.ctrl)
+                                        elif mod == "alt":
+                                            mod_objs.append(Key.alt)
+                                        elif mod == "shift":
+                                            mod_objs.append(Key.shift)
+                                        elif mod == "cmd":
+                                            mod_objs.append(Key.cmd)
+                                            
+                                    key_to_press = target_key
+                                    if target_key == "space":
+                                        key_to_press = " "
+                                    elif target_key.startswith("Key."):
+                                        attr = target_key.split(".")[1]
+                                        key_to_press = getattr(Key, attr, target_key)
+                                    else:
+                                        key_to_press = getattr(Key, target_key, target_key)
+                                        
+                                    try:
+                                        for mod_obj in mod_objs:
+                                            k.press(mod_obj)
+                                        k.press(key_to_press)
+                                        k.release(key_to_press)
+                                    finally:
+                                        for mod_obj in reversed(mod_objs):
+                                            k.release(mod_obj)
                                 else:
-                                    k.press(key_name)
-                                    k.release(key_name)
+                                    key_to_press = key_name
+                                    if key_name == "space":
+                                        key_to_press = " "
+                                    elif key_name == "ctrl":
+                                        key_to_press = Key.ctrl
+                                    elif key_name == "alt":
+                                        key_to_press = Key.alt
+                                    elif key_name == "shift":
+                                        key_to_press = Key.shift
+                                    elif key_name == "cmd":
+                                        key_to_press = Key.cmd
+                                    elif key_name.startswith("Key."):
+                                        attr = key_name.split(".")[1]
+                                        key_to_press = getattr(Key, attr, key_name)
+                                    else:
+                                        key_to_press = getattr(Key, key_name, key_name)
+                                        
+                                    k.press(key_to_press)
+                                    k.release(key_to_press)
 
                         except Exception:
                             pass

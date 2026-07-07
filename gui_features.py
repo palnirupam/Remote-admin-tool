@@ -1952,19 +1952,21 @@ def request_screen_monitor():
     canvas.bind("<Enter>", lambda e: canvas.focus_set())
 
     def on_key_press(event):
-        """Send key press to remote client. Supports Ctrl+key hotkeys and special keys."""
+        """Send key press to remote client. Supports multi-key combinations and special keys."""
         if not g.active_client_id:
             return
         key_name = event.keysym
         ctrl_held  = bool(event.state & 0x4)
         shift_held = bool(event.state & 0x1)
+        alt_held   = bool(event.state & 0x8) or bool(event.state & 0x20000)
+        win_held   = bool(event.state & 0x40) or key_name in ("Win_L", "Win_R")
 
         special_keys = {
             "Return":    "Key.enter",
             "BackSpace": "Key.backspace",
             "Tab":       "Key.tab",
             "Escape":    "Key.esc",
-            "space":     " ",
+            "space":     "space",
             "Delete":    "Key.delete",
             "Up":        "Key.up",
             "Down":      "Key.down",
@@ -1972,20 +1974,49 @@ def request_screen_monitor():
             "Right":     "Key.right",
             "Home":      "Key.home",
             "End":       "Key.end",
-            "Prior":     "Key.page_up",    # Page Up
-            "Next":      "Key.page_down",  # Page Down
-            "F1":  "Key.f1",  "F2":  "Key.f2",  "F3":  "Key.f3",  "F4":  "Key.f4",
-            "F5":  "Key.f5",  "F6":  "Key.f6",  "F7":  "Key.f7",  "F8":  "Key.f8",
-            "F9":  "Key.f9",  "F10": "Key.f10", "F11": "Key.f11", "F12": "Key.f12",
+            "Prior":     "Key.page_up",
+            "Next":      "Key.page_down",
+            "F1": "Key.f1", "F2": "Key.f2", "F3": "Key.f3", "F4": "Key.f4",
+            "F5": "Key.f5", "F6": "Key.f6", "F7": "Key.f7", "F8": "Key.f8",
+            "F9": "Key.f9", "F10": "Key.f10", "F11": "Key.f11", "F12": "Key.f12",
         }
 
-        if ctrl_held and len(key_name) == 1:
-            # Ctrl+letter hotkey  (e.g. Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+A)
-            _send_mouse_cmd(f"KEY_PRESS:ctrl+{key_name.lower()}")
-        elif key_name in special_keys:
-            _send_mouse_cmd(f"KEY_PRESS:{special_keys[key_name]}")
-        elif len(key_name) == 1:
-            _send_mouse_cmd(f"KEY_PRESS:{key_name}")
+        # Modifier key names in Tkinter keysym
+        modifier_keys = {
+            "Control_L": "ctrl", "Control_R": "ctrl",
+            "Shift_L": "shift", "Shift_R": "shift",
+            "Alt_L": "alt", "Alt_R": "alt",
+            "Win_L": "cmd", "Win_R": "cmd"
+        }
+
+        if key_name in modifier_keys:
+            # Send single modifier press
+            _send_mouse_cmd(f"KEY_PRESS:{modifier_keys[key_name]}")
+            return
+
+        # Resolve target key
+        target = special_keys.get(key_name, key_name)
+
+        # Construct combination prefix if modifiers are held
+        mods = []
+        if ctrl_held:
+            mods.append("ctrl")
+        if alt_held:
+            mods.append("alt")
+        if win_held:
+            mods.append("cmd")
+        # Only add shift prefix if it's a special key combination (like Shift+Tab or Shift+Enter)
+        # For standard characters, Tkinter already sends the shifted character (e.g. 'A' instead of 'a')
+        if shift_held and (key_name in special_keys or len(key_name) > 1):
+            mods.append("shift")
+
+        if mods:
+            # Send combination key press (e.g., ctrl+alt+delete or win+r)
+            combination = "+".join(mods) + "+" + target
+            _send_mouse_cmd(f"KEY_PRESS:{combination}")
+        else:
+            # Send single key
+            _send_mouse_cmd(f"KEY_PRESS:{target}")
 
     win.bind("<Key>", on_key_press)
     canvas.bind("<Key>", on_key_press)
