@@ -105,6 +105,14 @@ def print_banner():
     print("="*80 + "\n")
     logging.info("Server banner displayed")
 
+
+def _safe_response_filename(filename, default="download.bin"):
+    name = os.path.basename(str(filename or "").replace("\\", "/"))
+    if name in ("", ".", ".."):
+        return default
+    return name
+
+
 def print_menu():
     """Display menu"""
     print("\n" + "-"*80)
@@ -489,11 +497,11 @@ def download_file():
         
         if response.get("status") == "success":
             file_data = base64.b64decode(response.get("data"))
-            filename = response.get("filename")
+            filename = _safe_response_filename(response.get("filename"))
             
             # Create downloads directory
             os.makedirs("downloads", exist_ok=True)
-            save_path = f"downloads/{filename}"
+            save_path = os.path.join("downloads", filename)
             
             with open(save_path, 'wb') as f:
                 f.write(file_data)
@@ -970,7 +978,7 @@ while True:
             elif resp_type == "DOWNLOAD":
                 if response.get("status") == "success":
                     file_data = base64.b64decode(response.get("data"))
-                    filename = response.get("filename")
+                    filename = _safe_response_filename(response.get("filename"))
                     with open(filename, 'wb') as f:
                         f.write(file_data)
                     print(f"\n✓ Downloaded: {filename} ({len(file_data)} bytes)\n")
