@@ -301,9 +301,9 @@ def check_client_connections():
                     except Exception:
                         pass
                     del g.clients[client_id]
-                was_active = (client_id == g.active_client_id)
-                if was_active:
-                    g.active_client_id = None
+                    was_active = (client_id == g.active_client_id)
+                    if was_active:
+                        g.active_client_id = None
                 log_message(f"Client lost: {hostname}", "WARNING")
                 g.root.after(0, update_client_list)
                 if was_active:
