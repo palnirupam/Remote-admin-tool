@@ -26,6 +26,10 @@ keylog_button = None
 mic_active = False
 mic_button = None
 
+# ── Remote Voice Broadcast State ──────────────────────────────
+voice_broadcast_active = False
+voice_broadcast_window = None
+
 # ── Screen Monitor Live-Stream State ──────────────────────────
 screen_monitor_active = False
 screen_monitor_button = None
