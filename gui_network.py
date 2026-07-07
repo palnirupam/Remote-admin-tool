@@ -2,6 +2,7 @@
 gui_network.py - Server & Client Network Logic
 """
 import socket
+import select
 import threading
 import time
 import json
@@ -267,15 +268,15 @@ def disconnect_active_client():
 def _is_socket_alive(sock):
     """Actually probe the socket to see if it's still connected."""
     try:
-        old_timeout = sock.gettimeout()
-        sock.setblocking(False)
-        try:
-            data = sock.recv(1, socket.MSG_PEEK)
-            return data != b""   # empty bytes = graceful close
-        except BlockingIOError:
-            return True           # would block = still alive
-        finally:
-            sock.settimeout(old_timeout)
+        readable, _, exceptional = select.select([sock], [], [sock], 0)
+        if exceptional:
+            return False
+        if not readable:
+            return True
+        data = sock.recv(1, socket.MSG_PEEK)
+        return data != b""   # empty bytes = graceful close
+    except BlockingIOError:
+        return True           # would block = still alive
     except Exception:
         return False
 
