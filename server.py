@@ -606,7 +606,12 @@ def send_popup():
             conn = clients[active_client_id]["conn"]
             hostname = clients[active_client_id].get("info", {}).get("hostname", "Unknown")
         
-        cmd = f"POPUP:{title}:{message}"
+        def _popup_field(value):
+            if ":" in value or value.startswith("B64~"):
+                return "B64~" + base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii")
+            return value
+
+        cmd = f"POPUP:{_popup_field(title)}:{_popup_field(message)}"
         conn.send(cmd.encode())
         
         conn.settimeout(5.0)

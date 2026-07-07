@@ -464,7 +464,12 @@ def send_popup_message():
             messagebox.showerror("Error", "Title and Message cannot be empty!")
             return
 
-        cmd = f"POPUP:{style}:{title}:{msg}"
+        def _popup_field(value):
+            if ":" in value or value.startswith("B64~"):
+                return "B64~" + base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii")
+            return value
+
+        cmd = f"POPUP:{style}:{_popup_field(title)}:{_popup_field(msg)}"
         
         g.terminal_output.delete("input_start", "end")
         g.terminal_output.insert(tk.END, f"Sending {style} popup alert...\n", "command")

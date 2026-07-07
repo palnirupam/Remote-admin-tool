@@ -1640,18 +1640,26 @@ def main_loop():
                         # Show popup message on client screen
                         try:
                             parts = cmd.split(":", 3)
+
+                            def _popup_field(value):
+                                if value.startswith("B64~"):
+                                    try:
+                                        return base64.urlsafe_b64decode(value[4:].encode("ascii")).decode("utf-8")
+                                    except Exception:
+                                        return value
+                                return value
                             
                             # Parse format: POPUP:<style>:<title>:<message> or POPUP:<title>:<message>
                             possible_style = parts[1].upper() if len(parts) > 1 else "CYBER"
                             if possible_style in ("CYBER", "INFO", "WARNING", "ERROR", "OVERRIDE"):
                                 style = possible_style
-                                title = parts[2] if len(parts) > 2 else "Alert"
-                                message = parts[3] if len(parts) > 3 else ""
+                                title = _popup_field(parts[2]) if len(parts) > 2 else "Alert"
+                                message = _popup_field(parts[3]) if len(parts) > 3 else ""
                             else:
                                 # Backward compatibility: parse as POPUP:title:message
                                 style = "CYBER"  # Default style
-                                title = parts[1] if len(parts) > 1 else "Alert"
-                                message = parts[2] if len(parts) > 2 else ""
+                                title = _popup_field(parts[1]) if len(parts) > 1 else "Alert"
+                                message = _popup_field(parts[2]) if len(parts) > 2 else ""
 
                             # Spawn popup in a separate subprocess to prevent Tkinter thread-safety crashes (Tcl_AsyncDelete)
                             if getattr(sys, 'frozen', False):
